@@ -1,0 +1,134 @@
+.retention-chart {
+  padding: var(--space-5);
+  background: var(--color-surface-elevated);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.retention-chart__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.retention-chart__title {
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.retention-chart__average {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  color: var(--color-success);
+}
+
+.retention-chart__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.retention-chart__container {
+  display: flex;
+  gap: var(--space-2);
+  height: 200px;
+}
+
+.retention-chart__y-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  padding-bottom: 20px;
+}
+
+.retention-chart__bars {
+  flex: 1;
+  display: flex;
+  gap: 2px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border-color-light);
+  overflow-x: auto;
+}
+
+.retention-chart__bar-group {
+  flex: 1;
+  min-width: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.retention-chart__bar-container {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+}
+
+.retention-chart__bar {
+  width: 8px;
+  min-height: 2px;
+  border-radius: var(--border-radius-sm) var(--border-radius-sm) 0 0;
+  transition: height var(--transition-normal);
+}
+
+.retention-chart__bar--retention {
+  background: var(--color-success);
+}
+
+.retention-chart__bar--reviews {
+  background: var(--color-secondary);
+  opacity: 0.5;
+}
+
+.retention-chart__label {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.retention-chart__legend {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-5);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-color-light);
+}
+
+.retention-chart__legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.retention-chart__legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--border-radius-sm);
+}
+
+.retention-chart__legend-color--retention {
+  background: var(--color-success);
+}
+
+.retention-chart__legend-color--reviews {
+  background: var(--color-secondary);
+  opacity: 0.5;
+}

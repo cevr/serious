@@ -1,0 +1,44 @@
+.card {
+  background: var(--color-surface-elevated);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.card--interactive {
+  cursor: pointer;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+@media (hover: hover) {
+  .card--interactive:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0 var(--border-color);
+  }
+}
+
+.card--interactive:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.card--interactive:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+.card__header {
+  padding: var(--space-4) var(--space-5);
+  border-bottom: var(--border-width) solid var(--border-color-light);
+}
+
+.card__body {
+  padding: var(--space-5);
+}
+
+.card__footer {
+  padding: var(--space-4) var(--space-5);
+  border-top: var(--border-width) solid var(--border-color-light);
+  background: var(--color-surface);
+}
