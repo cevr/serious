@@ -597,19 +597,27 @@ function calculateStreak(db: Database): number {
 
   if (rows.length === 0) return 0
 
+  // Use UTC-based date arithmetic to avoid timezone issues
+  const today = new Date()
+  const todayStr = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, "0")}-${String(today.getUTCDate()).padStart(2, "0")}`
+
   let streak = 0
-  const today = new Date().toISOString().split("T")[0]!
-  let expectedDate = today
+  let expectedDate = todayStr
+
+  // If today has no reviews yet, start counting from yesterday
+  if (rows[0]?.date !== todayStr) {
+    const yesterday = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - 1))
+    expectedDate = `${yesterday.getUTCFullYear()}-${String(yesterday.getUTCMonth() + 1).padStart(2, "0")}-${String(yesterday.getUTCDate()).padStart(2, "0")}`
+  }
 
   for (const row of rows) {
     if (row.date === expectedDate) {
       streak++
-      // Calculate previous day
-      const d = new Date(expectedDate)
-      d.setDate(d.getDate() - 1)
-      expectedDate = d.toISOString().split("T")[0]!
+      // Calculate previous day using UTC
+      const d = new Date(expectedDate + "T00:00:00Z")
+      d.setUTCDate(d.getUTCDate() - 1)
+      expectedDate = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`
     } else if (row.date < expectedDate) {
-      // Gap in streak
       break
     }
   }

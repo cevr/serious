@@ -29,10 +29,9 @@ export const ReviewRoutesLive = HttpApiBuilder.group(SeriousApi, "reviews", (han
     .handle("submit", ({ path, payload }) =>
       Effect.gen(function* () {
         const reviewService = yield* ReviewService
-        const cardService = yield* CardService
 
-        // Get card first to check it exists
-        const card = yield* cardService.get(path.cardId as CardId).pipe(
+        // submitReview already checks card existence and returns the updated card
+        const result = yield* reviewService.submitReview(path.cardId as CardId, payload.rating).pipe(
           Effect.mapError(
             () =>
               new CardNotFoundError({
@@ -42,17 +41,11 @@ export const ReviewRoutesLive = HttpApiBuilder.group(SeriousApi, "reviews", (han
           )
         )
 
-        // Submit review and get updated card
-        const result = yield* reviewService.submitReview(path.cardId as CardId, payload.rating)
-
-        // Get the updated card
-        const updatedCard = yield* cardService.get(path.cardId as CardId)
-
         return new ReviewResult({
-          card: updatedCard,
+          card: result.card,
           scheduledDays: result.scheduledDays,
           elapsedDays: result.elapsedDays,
-          nextDue: updatedCard.due,
+          nextDue: result.card.due,
         })
       })
     )
