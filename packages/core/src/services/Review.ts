@@ -133,10 +133,12 @@ export class ReviewService extends Context.Tag("ReviewService")<
             })
 
             // Update card + insert log atomically
-            yield* db.transaction(() => {
-              Effect.runSync(db.updateCard(scheduled.card))
-              Effect.runSync(db.insertReviewLog(log))
-            })
+            yield* db.transaction(
+              Effect.gen(function* () {
+                yield* db.updateCard(scheduled.card)
+                yield* db.insertReviewLog(log)
+              })
+            )
 
             return scheduled
           }),

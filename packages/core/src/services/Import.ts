@@ -178,40 +178,40 @@ export class ImportService extends Context.Tag("ImportService")<
             let skipped = 0;
 
             // Batch all inserts in a single transaction
-            yield* db.transaction(() => {
-              for (const { word } of words) {
-                let personalNote: string | undefined;
-                let back = word;
+            yield* db.transaction(
+              Effect.gen(function* () {
+                for (const { word } of words) {
+                  let personalNote: string | undefined;
+                  let back = word;
 
-                if (sentencePairs) {
-                  const pairs = findSentencePairs(sentencePairs, word);
-                  if (pairs.length > 0) {
-                    const pair = pairs[0]!;
-                    back = pair.english;
-                    const examples = pairs
-                      .slice(0, 2)
-                      .map((p) => `${p.target}\n→ ${p.english}`)
-                      .join("\n\n");
-                    personalNote = examples;
+                  if (sentencePairs) {
+                    const pairs = findSentencePairs(sentencePairs, word);
+                    if (pairs.length > 0) {
+                      const pair = pairs[0]!;
+                      back = pair.english;
+                      const examples = pairs
+                        .slice(0, 2)
+                        .map((p) => `${p.target}\n→ ${p.english}`)
+                        .join("\n\n");
+                      personalNote = examples;
+                    }
                   }
-                }
 
-                const input = new CreateCardInput({
-                  deckId,
-                  type: "basic",
-                  front: word,
-                  back,
-                  personalNote,
-                });
+                  const input = new CreateCardInput({
+                    deckId,
+                    type: "basic",
+                    front: word,
+                    back,
+                    personalNote,
+                  });
 
-                try {
-                  Effect.runSync(cardService.create(input));
-                  imported++;
-                } catch {
-                  skipped++;
+                  yield* cardService.create(input).pipe(
+                    Effect.map(() => { imported++; }),
+                    Effect.catchAll(() => Effect.sync(() => { skipped++; })),
+                  );
                 }
-              }
-            });
+              })
+            );
 
             return { imported, skipped };
           }),
@@ -325,32 +325,32 @@ function parseAndImport(
     let skipped = 0;
 
     // Batch all inserts in a single transaction
-    yield* db.transaction(() => {
-      for (const note of notes) {
-        const fields = note.flds.split("\x1f");
-        const front = stripHtml(fields[0] ?? "").trim();
-        const back = stripHtml(fields[1] ?? "").trim();
+    yield* db.transaction(
+      Effect.gen(function* () {
+        for (const note of notes) {
+          const fields = note.flds.split("\x1f");
+          const front = stripHtml(fields[0] ?? "").trim();
+          const back = stripHtml(fields[1] ?? "").trim();
 
-        if (!front || !back) {
-          skipped++;
-          continue;
+          if (!front || !back) {
+            skipped++;
+            continue;
+          }
+
+          const input = new CreateCardInput({
+            deckId,
+            type: "basic",
+            front,
+            back,
+          });
+
+          yield* cardService.create(input).pipe(
+            Effect.map(() => { imported++; }),
+            Effect.catchAll(() => Effect.sync(() => { skipped++; })),
+          );
         }
-
-        const input = new CreateCardInput({
-          deckId,
-          type: "basic",
-          front,
-          back,
-        });
-
-        try {
-          Effect.runSync(cardService.create(input));
-          imported++;
-        } catch {
-          skipped++;
-        }
-      }
-    });
+      })
+    );
 
     return { imported, skipped };
   });
