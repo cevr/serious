@@ -37,6 +37,14 @@ export interface ReviewService {
   readonly getHistory: (cardId: CardId) => Effect.Effect<readonly ReviewLog[]>
 
   /**
+   * Get daily progress for a date range
+   */
+  readonly getDailyProgressRange: (
+    from: string,
+    to: string
+  ) => Effect.Effect<readonly DailyProgress[]>
+
+  /**
    * Record session stats to daily progress
    */
   readonly recordSession: (stats: SessionStats) => Effect.Effect<void>
@@ -84,6 +92,8 @@ export class ReviewService extends Context.Tag("ReviewService")<
 
         getHistory: (cardId) => db.getReviewLogs(cardId),
 
+        getDailyProgressRange: (from, to) => db.getDailyProgressRange(from, to),
+
         recordSession: (stats) =>
           Effect.gen(function* () {
             const today = new Date().toISOString().split("T")[0]!
@@ -110,6 +120,7 @@ export class ReviewService extends Context.Tag("ReviewService")<
           elapsedDays: 0,
         }),
       getHistory: () => Effect.succeed([]),
+      getDailyProgressRange: () => Effect.succeed([]),
       recordSession: () => Effect.void,
     })
   )

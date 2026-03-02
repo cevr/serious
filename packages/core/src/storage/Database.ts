@@ -386,6 +386,14 @@ export class DatabaseService extends Context.Tag("DatabaseService")<
             return row ? Option.some(rowToDailyProgress(row)) : Option.none()
           }),
 
+        getDailyProgressRange: (from, to) =>
+          Effect.sync(() => {
+            const rows = db.query(
+              "SELECT * FROM daily_progress WHERE date >= ? AND date <= ? ORDER BY date"
+            ).all(from, to) as DailyProgressRow[]
+            return rows.map(rowToDailyProgress)
+          }),
+
         upsertDailyProgress: (progress) =>
           Effect.sync(() => {
             db.query(
@@ -451,6 +459,7 @@ export class DatabaseService extends Context.Tag("DatabaseService")<
       insertReviewLog: () => Effect.void,
       getReviewLogs: () => Effect.succeed([]),
       getDailyProgress: () => Effect.succeed(Option.none()),
+      getDailyProgressRange: () => Effect.succeed([]),
       upsertDailyProgress: () => Effect.void,
       getSetting: () => Effect.succeed(Option.none()),
       setSetting: () => Effect.void,
