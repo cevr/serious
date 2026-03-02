@@ -99,13 +99,15 @@ export class ReviewService extends Context.Tag("ReviewService")<
         recordSession: (stats) =>
           Effect.gen(function* () {
             const today = new Date().toISOString().split("T")[0]!
-            yield* db.upsertDailyProgress({
-              date: today,
-              newCards: 0, // TODO: Track new cards separately
-              reviews: stats.reviewed,
-              correctReviews: stats.correct,
-              timeSpentSeconds: stats.timeSpentSeconds,
-            })
+            yield* db.upsertDailyProgress(
+              new DailyProgress({
+                date: today,
+                newCards: stats.newCards,
+                reviews: stats.reviewed,
+                correctReviews: stats.correct,
+                timeSpentSeconds: stats.timeSpentSeconds,
+              })
+            )
           }),
       })
     })

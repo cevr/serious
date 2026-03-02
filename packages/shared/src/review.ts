@@ -16,8 +16,9 @@ export class ReviewLog extends S.Class<ReviewLog>("ReviewLog")({
 // Session statistics
 export class SessionStats extends S.Class<SessionStats>("SessionStats")({
   reviewed: S.Number,
-  correct: S.Number, // Rating >= 3 (Good or Easy)
-  wrong: S.Number, // Rating < 3 (Again or Hard)
+  correct: S.Number, // Rating >= 2 (Hard, Good, or Easy)
+  wrong: S.Number, // Rating = 1 (Again)
+  newCards: S.optionalWith(S.Number, { default: () => 0 }),
   timeSpentSeconds: S.Number,
   startedAt: S.Date,
   endedAt: S.NullOr(S.Date),

@@ -1,6 +1,6 @@
 import { HttpApiBuilder } from "@effect/platform"
-import { Effect } from "effect"
-import { DeckService, ReviewService } from "@serious/core"
+import { Effect, Option } from "effect"
+import { DatabaseService, DeckService, ReviewService } from "@serious/core"
 import { SeriousApi, AggregateStats, RetentionDataPoint } from "@serious/api"
 
 export const StatsRoutesLive = HttpApiBuilder.group(SeriousApi, "stats", (handlers) =>
@@ -8,13 +8,13 @@ export const StatsRoutesLive = HttpApiBuilder.group(SeriousApi, "stats", (handle
     .handle("aggregate", () =>
       Effect.gen(function* () {
         const deckService = yield* DeckService
+        const db = yield* DatabaseService
         const decks = yield* deckService.getAll()
 
         let totalCards = 0
         let totalDue = 0
         let totalNew = 0
         let currentStreak = 0
-        let longestStreak = 0
         let totalRetention = 0
         let deckCount = 0
 
@@ -29,9 +29,16 @@ export const StatsRoutesLive = HttpApiBuilder.group(SeriousApi, "stats", (handle
           if (stats.streak > currentStreak) {
             currentStreak = stats.streak
           }
-          if (stats.streak > longestStreak) {
-            longestStreak = stats.streak
-          }
+        }
+
+        // Persist longest streak in settings
+        const storedLongest = yield* db.getSetting("longestStreak").pipe(
+          Effect.map(Option.map((v) => parseInt(v, 10))),
+          Effect.map(Option.getOrElse(() => 0)),
+        )
+        const longestStreak = Math.max(currentStreak, storedLongest)
+        if (longestStreak > storedLongest) {
+          yield* db.setSetting("longestStreak", String(longestStreak))
         }
 
         return new AggregateStats({
