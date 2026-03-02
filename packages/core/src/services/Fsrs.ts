@@ -238,8 +238,7 @@ function initializeCard(rating: Rating): {
           : w[3]!
 
   // Initial difficulty
-  const difficulty = w[4]! - Math.exp(w[5]! * (rating - 1)) + 1
-  const clampedDifficulty = Math.max(1, Math.min(10, difficulty))
+  const clampedDifficulty = initialDifficulty(rating)
 
   // Initial interval
   let interval: number
@@ -280,11 +279,18 @@ function calculateInterval(stability: number, requestedRetention: number): numbe
   return stability * (Math.pow(requestedRetention, -1) - 1) * 9
 }
 
+function initialDifficulty(rating: Rating): number {
+  const w = DEFAULT_WEIGHTS
+  return Math.max(1, Math.min(10, w[4]! - Math.exp(w[5]! * (rating - 1)) + 1))
+}
+
 function updateDifficulty(difficulty: number, rating: Rating): number {
   const w = DEFAULT_WEIGHTS
-  // Mean reversion towards initial difficulty
-  const delta = w[6]! * (difficulty - w[4]!) + (w[7]! * (rating - 3))
-  const newDifficulty = difficulty - delta
+  // FSRS-5: D'(D, G) = w7 * D0(3) + (1 - w7) * (D - w6 * (G - 3))
+  // w7 = mean reversion weight (small), w6 = difficulty adjustment per rating step
+  // D0(3) = initial difficulty for "Good" rating (mean reversion target)
+  const d0Good = initialDifficulty(3)
+  const newDifficulty = w[7]! * d0Good + (1 - w[7]!) * (difficulty - w[6]! * (rating - 3))
   return Math.max(1, Math.min(10, newDifficulty))
 }
 

@@ -207,6 +207,22 @@ describe("FsrsService", () => {
         )
       }).pipe(Effect.provide(testLayer))
     )
+
+    it.effect("Easy should decrease difficulty, Hard should increase it", () =>
+      Effect.gen(function* () {
+        const fsrs = yield* FsrsService
+        const card = makeReviewCard({ difficulty: 5 })
+        const now = new Date("2024-01-10T12:00:00Z")
+
+        const easyResult = yield* fsrs.schedule(card, 4, now)
+        const hardResult = yield* fsrs.schedule(card, 2, now)
+
+        // Easy (4) should decrease difficulty from 5
+        expect(easyResult.card.difficulty).toBeLessThan(card.difficulty)
+        // Hard (2) should increase difficulty from 5
+        expect(hardResult.card.difficulty).toBeGreaterThan(card.difficulty)
+      }).pipe(Effect.provide(testLayer))
+    )
   })
 
   describe("retrievability", () => {
