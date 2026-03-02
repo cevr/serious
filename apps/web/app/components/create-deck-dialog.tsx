@@ -35,8 +35,9 @@ export function CreateDeckDialog() {
           </AlertDialogHeader>
           <div className="mt-4 space-y-3">
             <div>
-              <label className="text-sm font-medium">Name</label>
+              <label htmlFor="deck-name" className="text-sm font-medium">Name</label>
               <input
+                id="deck-name"
                 name="name"
                 required
                 placeholder="French Vocabulary"
@@ -45,8 +46,9 @@ export function CreateDeckDialog() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-sm font-medium">Target Language</label>
+                <label htmlFor="deck-target-lang" className="text-sm font-medium">Target Language</label>
                 <input
+                  id="deck-target-lang"
                   name="targetLanguage"
                   required
                   placeholder="fr"
@@ -55,8 +57,9 @@ export function CreateDeckDialog() {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium">Native Language</label>
+                <label htmlFor="deck-native-lang" className="text-sm font-medium">Native Language</label>
                 <input
+                  id="deck-native-lang"
                   name="nativeLanguage"
                   required
                   placeholder="en"
@@ -66,8 +69,9 @@ export function CreateDeckDialog() {
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium">Description</label>
+              <label htmlFor="deck-description" className="text-sm font-medium">Description</label>
               <input
+                id="deck-description"
                 name="description"
                 placeholder="Optional description"
                 className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"

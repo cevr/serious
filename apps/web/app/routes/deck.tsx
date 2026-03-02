@@ -217,12 +217,14 @@ function AddCardForm({ deckId }: { deckId: string }) {
           name="front"
           placeholder="Front"
           required
+          aria-label="Card front"
           className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
         />
         <input
           name="back"
           placeholder="Back"
           required
+          aria-label="Card back"
           className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
         />
         <Button type="submit" size="sm">

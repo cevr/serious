@@ -22,7 +22,14 @@ export function ReviewProgress({
           <span className="text-red-500">{wrong} wrong</span>
         </div>
       </div>
-      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+      <div
+        role="progressbar"
+        aria-valuenow={Math.round(progress)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={`Review progress: ${current} of ${total} cards`}
+        className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted"
+      >
         <div
           className="h-full rounded-full bg-primary transition-all duration-300"
           style={{ width: `${progress}%` }}
