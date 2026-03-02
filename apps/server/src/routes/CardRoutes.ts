@@ -2,7 +2,6 @@ import { HttpApiBuilder } from "@effect/platform"
 import { Effect } from "effect"
 import { CardService, DatabaseService, DeckService } from "@serious/core"
 import { SeriousApi, CardNotFoundError, DeckNotFoundError, PaginatedCards } from "@serious/api"
-import type { CardId, DeckId } from "@serious/shared"
 
 export const CardRoutesLive = HttpApiBuilder.group(SeriousApi, "cards", (handlers) =>
   handlers
@@ -12,7 +11,7 @@ export const CardRoutesLive = HttpApiBuilder.group(SeriousApi, "cards", (handler
         const deckService = yield* DeckService
 
         // Verify deck exists
-        yield* deckService.get(path.deckId as DeckId).pipe(
+        yield* deckService.get(path.deckId).pipe(
           Effect.mapError(
             () =>
               new DeckNotFoundError({
@@ -29,7 +28,7 @@ export const CardRoutesLive = HttpApiBuilder.group(SeriousApi, "cards", (handler
           : undefined
 
         const result = yield* db.getFilteredCards({
-          deckId: path.deckId as DeckId,
+          deckId: path.deckId,
           state: urlParams.state,
           search: urlParams.search,
           tags,
@@ -49,7 +48,7 @@ export const CardRoutesLive = HttpApiBuilder.group(SeriousApi, "cards", (handler
     .handle("get", ({ path }) =>
       Effect.gen(function* () {
         const cardService = yield* CardService
-        return yield* cardService.get(path.cardId as CardId).pipe(
+        return yield* cardService.get(path.cardId).pipe(
           Effect.mapError(
             () =>
               new CardNotFoundError({
@@ -66,7 +65,7 @@ export const CardRoutesLive = HttpApiBuilder.group(SeriousApi, "cards", (handler
         const deckService = yield* DeckService
 
         // Verify deck exists
-        yield* deckService.get(path.deckId as DeckId).pipe(
+        yield* deckService.get(path.deckId).pipe(
           Effect.mapError(
             () =>
               new DeckNotFoundError({
@@ -78,7 +77,7 @@ export const CardRoutesLive = HttpApiBuilder.group(SeriousApi, "cards", (handler
 
         // Create card with deck ID and defaults
         return yield* cardService.create({
-          deckId: path.deckId as DeckId,
+          deckId: path.deckId,
           type: payload.type ?? "basic",
           front: payload.front,
           back: payload.back,
@@ -93,7 +92,7 @@ export const CardRoutesLive = HttpApiBuilder.group(SeriousApi, "cards", (handler
     .handle("update", ({ path, payload }) =>
       Effect.gen(function* () {
         const cardService = yield* CardService
-        return yield* cardService.update(path.cardId as CardId, payload).pipe(
+        return yield* cardService.update(path.cardId, payload).pipe(
           Effect.mapError(
             () =>
               new CardNotFoundError({
@@ -107,7 +106,7 @@ export const CardRoutesLive = HttpApiBuilder.group(SeriousApi, "cards", (handler
     .handle("delete", ({ path }) =>
       Effect.gen(function* () {
         const cardService = yield* CardService
-        yield* cardService.delete(path.cardId as CardId).pipe(
+        yield* cardService.delete(path.cardId).pipe(
           Effect.mapError(
             () =>
               new CardNotFoundError({

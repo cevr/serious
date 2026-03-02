@@ -1,6 +1,6 @@
 import { HttpApiEndpoint, HttpApiGroup } from "@effect/platform"
 import { Schema as S } from "effect"
-import { Card, Rating, ReviewLog } from "@serious/shared"
+import { Card, CardIdSchema, DeckIdSchema, Rating, ReviewLog } from "@serious/shared"
 import { CardNotFoundError, DeckNotFoundError } from "./errors"
 
 // Response after submitting a review
@@ -24,21 +24,21 @@ export const GetDueCardsParams = S.Struct({
 export const ReviewApiGroup = HttpApiGroup.make("reviews")
   .add(
     HttpApiEndpoint.get("getDue", "/decks/:deckId/due")
-      .setPath(S.Struct({ deckId: S.String }))
+      .setPath(S.Struct({ deckId: DeckIdSchema }))
       .setUrlParams(GetDueCardsParams)
       .addSuccess(S.Array(Card))
       .addError(DeckNotFoundError, { status: 404 })
   )
   .add(
     HttpApiEndpoint.post("submit", "/cards/:cardId/review")
-      .setPath(S.Struct({ cardId: S.String }))
+      .setPath(S.Struct({ cardId: CardIdSchema }))
       .setPayload(SubmitReviewInput)
       .addSuccess(ReviewResult)
       .addError(CardNotFoundError, { status: 404 })
   )
   .add(
     HttpApiEndpoint.get("history", "/cards/:cardId/history")
-      .setPath(S.Struct({ cardId: S.String }))
+      .setPath(S.Struct({ cardId: CardIdSchema }))
       .addSuccess(S.Array(ReviewLog))
       .addError(CardNotFoundError, { status: 404 })
   )

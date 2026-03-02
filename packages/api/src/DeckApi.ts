@@ -1,6 +1,6 @@
 import { HttpApiEndpoint, HttpApiGroup } from "@effect/platform"
 import { Schema as S } from "effect"
-import { Deck, DeckStats, CreateDeckInput } from "@serious/shared"
+import { Deck, DeckIdSchema, DeckStats, CreateDeckInput } from "@serious/shared"
 import { DeckNotFoundError, ValidationError } from "./errors"
 
 // Partial update input for deck
@@ -18,13 +18,13 @@ export const DeckApiGroup = HttpApiGroup.make("decks")
   )
   .add(
     HttpApiEndpoint.get("get", "/decks/:deckId")
-      .setPath(S.Struct({ deckId: S.String }))
+      .setPath(S.Struct({ deckId: DeckIdSchema }))
       .addSuccess(Deck)
       .addError(DeckNotFoundError, { status: 404 })
   )
   .add(
     HttpApiEndpoint.get("stats", "/decks/:deckId/stats")
-      .setPath(S.Struct({ deckId: S.String }))
+      .setPath(S.Struct({ deckId: DeckIdSchema }))
       .addSuccess(DeckStats)
       .addError(DeckNotFoundError, { status: 404 })
   )
@@ -36,7 +36,7 @@ export const DeckApiGroup = HttpApiGroup.make("decks")
   )
   .add(
     HttpApiEndpoint.patch("update", "/decks/:deckId")
-      .setPath(S.Struct({ deckId: S.String }))
+      .setPath(S.Struct({ deckId: DeckIdSchema }))
       .setPayload(UpdateDeckInput)
       .addSuccess(Deck)
       .addError(DeckNotFoundError, { status: 404 })
@@ -44,7 +44,7 @@ export const DeckApiGroup = HttpApiGroup.make("decks")
   )
   .add(
     HttpApiEndpoint.del("delete", "/decks/:deckId")
-      .setPath(S.Struct({ deckId: S.String }))
+      .setPath(S.Struct({ deckId: DeckIdSchema }))
       .addSuccess(S.Void)
       .addError(DeckNotFoundError, { status: 404 })
   )

@@ -1,6 +1,6 @@
 import { HttpApiEndpoint, HttpApiGroup } from "@effect/platform"
 import { Schema as S } from "effect"
-import { Card, CreateCardInput, CardState } from "@serious/shared"
+import { Card, CardIdSchema, CreateCardInput, CardState, DeckIdSchema } from "@serious/shared"
 import { CardNotFoundError, DeckNotFoundError, ValidationError } from "./errors"
 
 // Paginated response for cards
@@ -35,20 +35,20 @@ export const UpdateCardInput = S.Struct({
 export const CardApiGroup = HttpApiGroup.make("cards")
   .add(
     HttpApiEndpoint.get("listByDeck", "/decks/:deckId/cards")
-      .setPath(S.Struct({ deckId: S.String }))
+      .setPath(S.Struct({ deckId: DeckIdSchema }))
       .setUrlParams(ListCardsParams)
       .addSuccess(PaginatedCards)
       .addError(DeckNotFoundError, { status: 404 })
   )
   .add(
     HttpApiEndpoint.get("get", "/cards/:cardId")
-      .setPath(S.Struct({ cardId: S.String }))
+      .setPath(S.Struct({ cardId: CardIdSchema }))
       .addSuccess(Card)
       .addError(CardNotFoundError, { status: 404 })
   )
   .add(
     HttpApiEndpoint.post("create", "/decks/:deckId/cards")
-      .setPath(S.Struct({ deckId: S.String }))
+      .setPath(S.Struct({ deckId: DeckIdSchema }))
       .setPayload(S.Struct({
         type: S.optional(S.Literal("basic", "minimal-pair", "cloze", "image-word", "ipa", "spelling")),
         front: S.String,
@@ -65,7 +65,7 @@ export const CardApiGroup = HttpApiGroup.make("cards")
   )
   .add(
     HttpApiEndpoint.patch("update", "/cards/:cardId")
-      .setPath(S.Struct({ cardId: S.String }))
+      .setPath(S.Struct({ cardId: CardIdSchema }))
       .setPayload(UpdateCardInput)
       .addSuccess(Card)
       .addError(CardNotFoundError, { status: 404 })
@@ -73,7 +73,7 @@ export const CardApiGroup = HttpApiGroup.make("cards")
   )
   .add(
     HttpApiEndpoint.del("delete", "/cards/:cardId")
-      .setPath(S.Struct({ cardId: S.String }))
+      .setPath(S.Struct({ cardId: CardIdSchema }))
       .addSuccess(S.Void)
       .addError(CardNotFoundError, { status: 404 })
   )

@@ -2,7 +2,6 @@ import { HttpApiBuilder } from "@effect/platform"
 import { Effect } from "effect"
 import { ReviewService, CardService, DeckService } from "@serious/core"
 import { SeriousApi, CardNotFoundError, DeckNotFoundError, ReviewResult } from "@serious/api"
-import type { CardId, DeckId } from "@serious/shared"
 
 export const ReviewRoutesLive = HttpApiBuilder.group(SeriousApi, "reviews", (handlers) =>
   handlers
@@ -12,7 +11,7 @@ export const ReviewRoutesLive = HttpApiBuilder.group(SeriousApi, "reviews", (han
         const deckService = yield* DeckService
 
         // Verify deck exists
-        yield* deckService.get(path.deckId as DeckId).pipe(
+        yield* deckService.get(path.deckId).pipe(
           Effect.mapError(
             () =>
               new DeckNotFoundError({
@@ -23,7 +22,7 @@ export const ReviewRoutesLive = HttpApiBuilder.group(SeriousApi, "reviews", (han
         )
 
         const limit = urlParams.limit ?? 20
-        return yield* reviewService.getDueCards(path.deckId as DeckId, limit)
+        return yield* reviewService.getDueCards(path.deckId, limit)
       })
     )
     .handle("submit", ({ path, payload }) =>
@@ -31,7 +30,7 @@ export const ReviewRoutesLive = HttpApiBuilder.group(SeriousApi, "reviews", (han
         const reviewService = yield* ReviewService
 
         // submitReview already checks card existence and returns the updated card
-        const result = yield* reviewService.submitReview(path.cardId as CardId, payload.rating).pipe(
+        const result = yield* reviewService.submitReview(path.cardId, payload.rating).pipe(
           Effect.mapError(
             () =>
               new CardNotFoundError({
@@ -55,7 +54,7 @@ export const ReviewRoutesLive = HttpApiBuilder.group(SeriousApi, "reviews", (han
         const cardService = yield* CardService
 
         // Verify card exists
-        yield* cardService.get(path.cardId as CardId).pipe(
+        yield* cardService.get(path.cardId).pipe(
           Effect.mapError(
             () =>
               new CardNotFoundError({
@@ -65,7 +64,7 @@ export const ReviewRoutesLive = HttpApiBuilder.group(SeriousApi, "reviews", (han
           )
         )
 
-        return yield* reviewService.getHistory(path.cardId as CardId)
+        return yield* reviewService.getHistory(path.cardId)
       })
     )
 )
