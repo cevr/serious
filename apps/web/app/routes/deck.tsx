@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import { useRef } from "react";
 import { Link, redirect, useFetcher, useLoaderData } from "react-router";
 import type { Route } from "./+types/deck";
 
@@ -7,6 +8,17 @@ import { CardId, CreateCardInput, DeckId } from "@serious/shared";
 import type { Card, Deck, DeckStats } from "@serious/shared";
 
 import { routeAction, routeHandler } from "~/lib/effect/route.server";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "~/components/ui/alert-dialog";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
@@ -77,7 +89,7 @@ export const action = routeAction(function* (_resume, args) {
 
 export default function DeckDetail() {
   const { deck, cards, stats } = useLoaderData<typeof loader>();
-  const fetcher = useFetcher();
+  const deleteDeckFetcher = useFetcher();
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -109,13 +121,27 @@ export default function DeckDetail() {
               Review ({stats.dueToday})
             </Button>
           )}
-          <fetcher.Form method="post">
-            <input type="hidden" name="intent" value="delete-deck" />
-            <input type="hidden" name="deckId" value={deck.id} />
-            <Button type="submit" variant="destructive" size="sm">
+          <AlertDialog>
+            <AlertDialogTrigger render={<Button variant="destructive" size="sm" />}>
               Delete
-            </Button>
-          </fetcher.Form>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete deck?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete "{deck.name}" and all its cards.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <deleteDeckFetcher.Form method="post">
+                  <input type="hidden" name="intent" value="delete-deck" />
+                  <input type="hidden" name="deckId" value={deck.id} />
+                  <AlertDialogAction type="submit">Delete</AlertDialogAction>
+                </deleteDeckFetcher.Form>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
@@ -128,46 +154,10 @@ export default function DeckDetail() {
       </div>
 
       {/* Import */}
-      <div className="mt-8">
-        <h2 className="text-lg font-semibold">Import</h2>
-        <fetcher.Form method="post" encType="multipart/form-data" className="mt-2 flex items-center gap-2">
-          <input type="hidden" name="intent" value="import-apkg" />
-          <input type="hidden" name="deckId" value={deck.id} />
-          <input
-            type="file"
-            name="file"
-            accept=".apkg"
-            className="text-sm file:mr-2 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium"
-          />
-          <Button type="submit" size="sm" variant="secondary">
-            Import .apkg
-          </Button>
-        </fetcher.Form>
-      </div>
+      <ImportForm deckId={deck.id} />
 
       {/* Add card */}
-      <div className="mt-8">
-        <h2 className="text-lg font-semibold">Add Card</h2>
-        <fetcher.Form method="post" className="mt-2 flex gap-2">
-          <input type="hidden" name="intent" value="create-card" />
-          <input type="hidden" name="deckId" value={deck.id} />
-          <input
-            name="front"
-            placeholder="Front"
-            required
-            className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
-          />
-          <input
-            name="back"
-            placeholder="Back"
-            required
-            className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
-          />
-          <Button type="submit" size="sm">
-            Add
-          </Button>
-        </fetcher.Form>
-      </div>
+      <AddCardForm deckId={deck.id} />
 
       {/* Card list */}
       <div className="mt-8">
@@ -176,38 +166,106 @@ export default function DeckDetail() {
         </h2>
         <div className="mt-2 space-y-2">
           {cards.map((card) => (
-            <CardUI key={card.id}>
-              <CardHeader className="flex flex-row items-center justify-between py-3">
-                <CardTitle className="text-sm font-normal">
-                  <span className="font-medium">{card.front}</span>
-                  <span className="mx-2 text-muted-foreground">→</span>
-                  <span>{card.back}</span>
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                  <Badge
-                    variant={card.state === "new" ? "default" : "secondary"}
-                  >
-                    {card.state}
-                  </Badge>
-                  <fetcher.Form method="post">
-                    <input type="hidden" name="intent" value="delete-card" />
-                    <input type="hidden" name="cardId" value={card.id} />
-                    <Button
-                      type="submit"
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2 text-xs text-muted-foreground"
-                    >
-                      ×
-                    </Button>
-                  </fetcher.Form>
-                </div>
-              </CardHeader>
-            </CardUI>
+            <CardRow key={card.id} card={card} />
           ))}
         </div>
       </div>
     </div>
+  );
+}
+
+function ImportForm({ deckId }: { deckId: string }) {
+  const fetcher = useFetcher();
+  const isSubmitting = fetcher.state === "submitting";
+
+  return (
+    <div className="mt-8">
+      <h2 className="text-lg font-semibold">Import</h2>
+      <fetcher.Form method="post" encType="multipart/form-data" className="mt-2 flex items-center gap-2">
+        <input type="hidden" name="intent" value="import-apkg" />
+        <input type="hidden" name="deckId" value={deckId} />
+        <input
+          type="file"
+          name="file"
+          accept=".apkg"
+          className="text-sm file:mr-2 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium"
+        />
+        <Button type="submit" size="sm" variant="secondary" disabled={isSubmitting}>
+          {isSubmitting ? "Importing..." : "Import .apkg"}
+        </Button>
+      </fetcher.Form>
+    </div>
+  );
+}
+
+function AddCardForm({ deckId }: { deckId: string }) {
+  const fetcher = useFetcher();
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // Reset form on successful submission
+  if (fetcher.data && "ok" in fetcher.data && fetcher.data.ok && fetcher.state === "idle") {
+    formRef.current?.reset();
+  }
+
+  return (
+    <div className="mt-8">
+      <h2 className="text-lg font-semibold">Add Card</h2>
+      <fetcher.Form ref={formRef} method="post" className="mt-2 flex gap-2">
+        <input type="hidden" name="intent" value="create-card" />
+        <input type="hidden" name="deckId" value={deckId} />
+        <input
+          name="front"
+          placeholder="Front"
+          required
+          className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+        />
+        <input
+          name="back"
+          placeholder="Back"
+          required
+          className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+        />
+        <Button type="submit" size="sm">
+          Add
+        </Button>
+      </fetcher.Form>
+    </div>
+  );
+}
+
+function CardRow({ card }: { card: Card }) {
+  const fetcher = useFetcher();
+
+  return (
+    <CardUI>
+      <CardHeader className="flex flex-row items-center justify-between py-3">
+        <CardTitle className="text-sm font-normal">
+          <span className="font-medium">{card.front}</span>
+          <span className="mx-2 text-muted-foreground">→</span>
+          <span>{card.back}</span>
+        </CardTitle>
+        <div className="flex items-center gap-2">
+          <Badge
+            variant={card.state === "new" ? "default" : "secondary"}
+          >
+            {card.state}
+          </Badge>
+          <fetcher.Form method="post">
+            <input type="hidden" name="intent" value="delete-card" />
+            <input type="hidden" name="cardId" value={card.id} />
+            <Button
+              type="submit"
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-xs text-muted-foreground"
+              aria-label="Delete card"
+            >
+              ×
+            </Button>
+          </fetcher.Form>
+        </div>
+      </CardHeader>
+    </CardUI>
   );
 }
 
