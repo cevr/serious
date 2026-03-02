@@ -1,14 +1,16 @@
 import { Database } from "bun:sqlite"
 import { FileSystem, Path } from "@effect/platform"
 import { Config, Context, Effect, Layer, Option } from "effect"
-import type {
+import {
   Card,
-  CardId,
+  DailyProgress,
   Deck,
-  DeckId,
   DeckStats,
   ReviewLog,
-  DailyProgress,
+} from "@serious/shared"
+import type {
+  CardId,
+  DeckId,
 } from "@serious/shared"
 import { DatabaseError } from "../errors"
 
@@ -345,7 +347,7 @@ export class DatabaseService extends Context.Tag("DatabaseService")<
             // Calculate streak
             const streak = calculateStreak(db)
 
-            return {
+            return new DeckStats({
               deckId: id,
               totalCards: total.count,
               newCount: newCount.count,
@@ -354,7 +356,7 @@ export class DatabaseService extends Context.Tag("DatabaseService")<
               dueToday: due.count,
               retentionRate,
               streak,
-            } as DeckStats
+            })
           }),
 
         // Review logs
@@ -529,7 +531,7 @@ interface DailyProgressRow {
 
 // Row converters
 function rowToCard(row: CardRow): Card {
-  return {
+  return new Card({
     id: row.id,
     deckId: row.deck_id,
     type: row.type,
@@ -548,11 +550,11 @@ function rowToCard(row: CardRow): Card {
     personalNote: row.personal_note,
     tags: JSON.parse(row.tags),
     createdAt: new Date(row.created_at),
-  } as Card
+  })
 }
 
 function rowToDeck(row: DeckRow): Deck {
-  return {
+  return new Deck({
     id: row.id,
     name: row.name,
     description: row.description,
@@ -563,11 +565,11 @@ function rowToDeck(row: DeckRow): Deck {
     stage: row.stage,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
-  } as Deck
+  })
 }
 
 function rowToReviewLog(row: ReviewLogRow): ReviewLog {
-  return {
+  return new ReviewLog({
     id: row.id,
     cardId: row.card_id,
     rating: row.rating,
@@ -575,17 +577,17 @@ function rowToReviewLog(row: ReviewLogRow): ReviewLog {
     scheduledDays: row.scheduled_days,
     elapsedDays: row.elapsed_days,
     reviewedAt: new Date(row.reviewed_at),
-  } as ReviewLog
+  })
 }
 
 function rowToDailyProgress(row: DailyProgressRow): DailyProgress {
-  return {
+  return new DailyProgress({
     date: row.date,
     newCards: row.new_cards,
     reviews: row.reviews,
     correctReviews: row.correct_reviews,
     timeSpentSeconds: row.time_spent_seconds,
-  } as DailyProgress
+  })
 }
 
 function calculateStreak(db: Database): number {
