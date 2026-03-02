@@ -2,8 +2,8 @@
 export * from "./errors"
 
 // Services
-export { CardService } from "./services/Card"
-export { DeckService } from "./services/Deck"
+export { CardService, type CardContentUpdate } from "./services/Card"
+export { DeckService, type DeckSettingsUpdate } from "./services/Deck"
 export { FsrsService, type ScheduledCard } from "./services/Fsrs"
 export { ImportService } from "./services/Import"
 export { ReviewService } from "./services/Review"

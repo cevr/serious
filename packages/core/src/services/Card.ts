@@ -10,6 +10,9 @@ import { DatabaseService } from "../storage/Database"
 import { FsrsService } from "./Fsrs"
 import { CardNotFound } from "../errors"
 
+/** Only content/metadata fields are updatable — not id, deckId, createdAt, or FSRS scheduling fields */
+export type CardContentUpdate = Partial<Pick<Card, "front" | "back" | "audioFront" | "audioBack" | "image" | "personalNote" | "tags">>
+
 export interface CardServiceShape {
   readonly create: (input: CreateCardInput) => Effect.Effect<Card>
   readonly get: (id: CardId) => Effect.Effect<Card, CardNotFound>
@@ -20,7 +23,7 @@ export interface CardServiceShape {
   ) => Effect.Effect<readonly Card[]>
   readonly update: (
     id: CardId,
-    data: Partial<Card>
+    data: CardContentUpdate
   ) => Effect.Effect<Card, CardNotFound>
   readonly delete: (id: CardId) => Effect.Effect<void, CardNotFound>
 }
@@ -140,7 +143,7 @@ export class CardService extends Context.Tag("CardService")<
               .filter((c) => c.deckId === deckId && c.due <= new Date())
               .slice(0, limit)
           ),
-        update: (id, data) => {
+        update: (id, data: CardContentUpdate) => {
           const existing = cards.get(id)
           if (!existing) {
             return Effect.fail(new CardNotFound({ cardId: id }))

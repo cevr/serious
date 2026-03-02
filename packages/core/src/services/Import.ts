@@ -247,7 +247,7 @@ export class ImportService extends Context.Tag("ImportService")<
                 .join("\n\n");
 
               yield* cardService
-                .update(card.id, new Card({ ...card, personalNote: examples }))
+                .update(card.id, { personalNote: examples })
                 .pipe(
                   Effect.map(() => {
                     enriched++;

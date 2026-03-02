@@ -9,6 +9,9 @@ import {
 import { DatabaseService } from "../storage/Database"
 import { DeckNotFound } from "../errors"
 
+/** Only settings fields are updatable — not id, createdAt, or other immutables */
+export type DeckSettingsUpdate = Partial<Pick<Deck, "name" | "description" | "targetLanguage" | "nativeLanguage" | "newCardsPerDay" | "reviewsPerDay" | "stage">>
+
 export interface DeckServiceShape {
   readonly create: (input: CreateDeckInput) => Effect.Effect<Deck>
   readonly get: (id: DeckIdType) => Effect.Effect<Deck, DeckNotFound>
@@ -16,7 +19,7 @@ export interface DeckServiceShape {
   readonly getStats: (id: DeckIdType) => Effect.Effect<DeckStats, DeckNotFound>
   readonly update: (
     id: DeckIdType,
-    data: Partial<Deck>
+    data: DeckSettingsUpdate
   ) => Effect.Effect<Deck, DeckNotFound>
   readonly delete: (id: DeckIdType) => Effect.Effect<void, DeckNotFound>
 }
@@ -143,7 +146,7 @@ export class DeckService extends Context.Tag("DeckService")<
             })
           )
         },
-        update: (id, data) => {
+        update: (id, data: DeckSettingsUpdate) => {
           const existing = decks.get(id)
           if (!existing) {
             return Effect.fail(new DeckNotFound({ deckId: id }))
