@@ -1,43 +1,48 @@
 import { Effect } from "effect";
-import type { YieldWrap } from "effect/Utils";
 import type { LoaderFunctionArgs } from "react-router";
 
-import { runLoaderEffect } from "./runtime.server";
+import { AppRuntime, handleLoaderError } from "./runtime.server";
 
 /**
  * Create a route loader from an Effect generator.
- *
- * Usage:
- *   export const loader = routeHandler(function* () {
- *     const decks = yield* DeckService
- *     return { decks: yield* decks.getAll() }
- *   })
+ * Services are provided by AppRuntime (CoreLive + platform).
  */
-export function routeHandler<Eff extends YieldWrap<Effect.Effect<any, any, any>>, A>(
+export function routeHandler<A>(
   body: (
     resume: Effect.Adapter,
     args: LoaderFunctionArgs,
-  ) => Generator<Eff, A, never>,
+  ) => Generator<any, A, any>,
 ) {
-  return (args: LoaderFunctionArgs): Promise<A> =>
-    runLoaderEffect(Effect.gen((resume) => body(resume, args)) as Effect.Effect<A, unknown, never>);
+  return async (args: LoaderFunctionArgs): Promise<A> => {
+    const effect = Effect.gen((resume) => body(resume, args));
+    const exit = await AppRuntime.runPromiseExit(effect as Effect.Effect<A>);
+
+    if (exit._tag === "Success") {
+      return exit.value;
+    }
+
+    handleLoaderError(exit.cause);
+  };
 }
 
 /**
  * Create a route action from an Effect generator.
- *
- * Usage:
- *   export const action = routeAction(function* (args) {
- *     const formData = yield* Effect.promise(() => args.request.formData())
- *     ...
- *   })
+ * Services are provided by AppRuntime (CoreLive + platform).
  */
-export function routeAction<Eff extends YieldWrap<Effect.Effect<any, any, any>>, A>(
+export function routeAction<A>(
   body: (
     resume: Effect.Adapter,
     args: LoaderFunctionArgs,
-  ) => Generator<Eff, A, never>,
+  ) => Generator<any, A, any>,
 ) {
-  return (args: LoaderFunctionArgs): Promise<A> =>
-    runLoaderEffect(Effect.gen((resume) => body(resume, args)) as Effect.Effect<A, unknown, never>);
+  return async (args: LoaderFunctionArgs): Promise<A> => {
+    const effect = Effect.gen((resume) => body(resume, args));
+    const exit = await AppRuntime.runPromiseExit(effect as Effect.Effect<A>);
+
+    if (exit._tag === "Success") {
+      return exit.value;
+    }
+
+    handleLoaderError(exit.cause);
+  };
 }

@@ -20,7 +20,7 @@ export const AppRuntime = ManagedRuntime.make(AppLive);
 
 // --- Error handling ---
 
-function handleLoaderError(cause: Cause.Cause<unknown>): never {
+export function handleLoaderError(cause: Cause.Cause<unknown>): never {
   if (Cause.isFailType(cause)) {
     const error = cause.error;
 
@@ -44,16 +44,3 @@ function handleLoaderError(cause: Cause.Cause<unknown>): never {
   );
 }
 
-// --- Loader/action runner ---
-
-export async function runLoaderEffect<A>(
-  effect: Effect.Effect<A, unknown, never>,
-): Promise<A> {
-  const exit = await AppRuntime.runPromiseExit(effect);
-
-  if (Exit.isSuccess(exit)) {
-    return exit.value;
-  }
-
-  handleLoaderError(exit.cause);
-}
