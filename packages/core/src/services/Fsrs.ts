@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Random } from "effect"
+import { Clock, Context, Effect, Layer, Random } from "effect"
 import {
   Card,
   CardId,
@@ -138,29 +138,31 @@ export class FsrsService extends Context.Tag("FsrsService")<
         }),
 
       createNew: (deckId, type, front, back) =>
-        Effect.sync(() => {
-          const now = new Date()
-          return new Card({
-            id: CardId.generate(),
-            deckId,
-            type,
-            due: now, // Due immediately
-            stability: 0,
-            difficulty: 0,
-            reps: 0,
-            lapses: 0,
-            state: "new",
-            lastReview: null,
-            front,
-            back,
-            audioFront: null,
-            audioBack: null,
-            image: null,
-            personalNote: null,
-            tags: [],
-            createdAt: now,
+        Clock.currentTimeMillis.pipe(
+          Effect.map((millis) => {
+            const now = new Date(millis)
+            return new Card({
+              id: CardId.generate(),
+              deckId,
+              type,
+              due: now, // Due immediately
+              stability: 0,
+              difficulty: 0,
+              reps: 0,
+              lapses: 0,
+              state: "new",
+              lastReview: null,
+              front,
+              back,
+              audioFront: null,
+              audioBack: null,
+              image: null,
+              personalNote: null,
+              tags: [],
+              createdAt: now,
+            })
           })
-        }),
+        ),
 
       retrievability: (card, now) =>
         Effect.sync(() => {

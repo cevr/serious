@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Option } from "effect"
+import { Clock, Context, Effect, Layer, Option } from "effect"
 import {
   CreateDeckInput,
   Deck,
@@ -36,7 +36,7 @@ export class DeckService extends Context.Tag("DeckService")<
       return DeckService.of({
         create: (input) =>
           Effect.gen(function* () {
-            const now = new Date()
+            const now = new Date(yield* Clock.currentTimeMillis)
             const deck = new Deck({
               id: DeckId.generate(),
               name: input.name,
@@ -82,7 +82,7 @@ export class DeckService extends Context.Tag("DeckService")<
             const updated = new Deck({
               ...existing.value,
               ...data,
-              updatedAt: new Date(),
+              updatedAt: new Date(yield* Clock.currentTimeMillis),
             })
             yield* db.updateDeck(updated)
             return updated

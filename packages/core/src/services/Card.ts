@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Option } from "effect"
+import { Clock, Context, Effect, Layer, Option } from "effect"
 import {
   Card,
   CardId,
@@ -73,7 +73,10 @@ export class CardService extends Context.Tag("CardService")<
 
         getByDeck: (deckId) => db.getCardsByDeck(deckId),
 
-        getDue: (deckId, limit) => db.getDueCards(deckId, limit, new Date()),
+        getDue: (deckId, limit) =>
+          Clock.currentTimeMillis.pipe(
+            Effect.flatMap((millis) => db.getDueCards(deckId, limit, new Date(millis)))
+          ),
 
         update: (id, data) =>
           Effect.gen(function* () {

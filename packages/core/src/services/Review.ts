@@ -1,4 +1,4 @@
-import { Context, Effect, Layer } from "effect"
+import { Clock, Context, Effect, Layer } from "effect"
 import {
   Card,
   type CardId,
@@ -62,12 +62,15 @@ export class ReviewService extends Context.Tag("ReviewService")<
       const cardService = yield* CardService
 
       return ReviewService.of({
-        getDueCards: (deckId, limit) => db.getDueCards(deckId, limit, new Date()),
+        getDueCards: (deckId, limit) =>
+          Clock.currentTimeMillis.pipe(
+            Effect.flatMap((millis) => db.getDueCards(deckId, limit, new Date(millis)))
+          ),
 
         submitReview: (cardId, rating) =>
           Effect.gen(function* () {
             const card = yield* cardService.get(cardId)
-            const now = new Date()
+            const now = new Date(yield* Clock.currentTimeMillis)
 
             // Schedule the card
             const scheduled = yield* fsrs.schedule(card, rating, now)
@@ -98,7 +101,7 @@ export class ReviewService extends Context.Tag("ReviewService")<
 
         recordSession: (stats) =>
           Effect.gen(function* () {
-            const today = new Date().toISOString().split("T")[0]!
+            const today = new Date(yield* Clock.currentTimeMillis).toISOString().split("T")[0]!
             yield* db.upsertDailyProgress(
               new DailyProgress({
                 date: today,
