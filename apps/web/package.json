@@ -10,7 +10,7 @@
     "typecheck": "react-router typegen && tsc --noEmit"
   },
   "dependencies": {
-    "@effect/platform-bun": "0.82.0",
+    "@effect/platform-bun": "0.87.1",
     "@base-ui/react": "^1.2.0",
     "@fontsource-variable/raleway": "^5.2.8",
     "@hugeicons/core-free-icons": "^3.3.0",
@@ -21,7 +21,7 @@
     "@tailwindcss/vite": "^4.1.17",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "effect": "3.19.3",
+    "effect": "3.19.19",
     "isbot": "^5",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

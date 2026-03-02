@@ -12,14 +12,16 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@effect/platform": "0.93.0",
+    "@effect/platform": "0.94.5",
     "@serious/shared": "workspace:*",
-    "effect": "3.19.3"
+    "adm-zip": "^0.5.16",
+    "effect": "3.19.19"
   },
   "devDependencies": {
-    "@effect/vitest": "0.26.0",
-    "@types/bun": "^1.3.6",
+    "@types/adm-zip": "^0.5.7",
+    "@effect/vitest": "0.27.0",
+    "@types/bun": "^1.3.9",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.17"
+    "vitest": "^4.0.18"
   }
 }
