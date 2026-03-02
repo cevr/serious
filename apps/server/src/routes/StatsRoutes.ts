@@ -55,18 +55,22 @@ export const StatsRoutesLive = HttpApiBuilder.group(SeriousApi, "stats", (handle
           ? new Date(urlParams.from)
           : new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000) // Default 30 days
 
-        return yield* reviewService.getDailyProgress(from, to)
+        const fromStr = from.toISOString().split("T")[0]!
+        const toStr = to.toISOString().split("T")[0]!
+        return yield* reviewService.getDailyProgressRange(fromStr, toStr)
       })
     )
     .handle("retention", ({ urlParams }) =>
       Effect.gen(function* () {
         const reviewService = yield* ReviewService
         const days = urlParams.days ?? 30
-        
+
         const to = new Date()
         const from = new Date(to.getTime() - days * 24 * 60 * 60 * 1000)
 
-        const dailyProgress = yield* reviewService.getDailyProgress(from, to)
+        const fromStr = from.toISOString().split("T")[0]!
+        const toStr = to.toISOString().split("T")[0]!
+        const dailyProgress = yield* reviewService.getDailyProgressRange(fromStr, toStr)
 
         return dailyProgress.map(
           (day) =>
