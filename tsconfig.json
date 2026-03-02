@@ -16,7 +16,6 @@
     "lib": ["ESNext"],
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "jsx": "preserve",
-    "jsxImportSource": "solid-js"
+    "jsx": "preserve"
   }
 }
