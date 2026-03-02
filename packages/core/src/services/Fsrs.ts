@@ -1,4 +1,4 @@
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Random } from "effect"
 import {
   Card,
   CardId,
@@ -58,7 +58,7 @@ export class FsrsService extends Context.Tag("FsrsService")<
     FsrsService,
     FsrsService.of({
       schedule: (card, rating, now) =>
-        Effect.sync(() => {
+        Effect.gen(function* () {
           const elapsedDays = card.lastReview
             ? (now.getTime() - card.lastReview.getTime()) / (1000 * 60 * 60 * 24)
             : 0
@@ -111,7 +111,7 @@ export class FsrsService extends Context.Tag("FsrsService")<
           }
 
           // Apply fuzz to interval to prevent cards from clustering
-          scheduledDays = applyFuzz(scheduledDays)
+          scheduledDays = yield* applyFuzz(scheduledDays)
 
           // Cap interval at maximum
           scheduledDays = Math.min(scheduledDays, MAX_INTERVAL)
@@ -338,11 +338,14 @@ function calculateStabilityAfterForget(
   return Math.max(0.1, Math.min(stability, newStability))
 }
 
-function applyFuzz(interval: number): number {
-  if (interval < 2.5) return interval
+function applyFuzz(interval: number): Effect.Effect<number> {
+  if (interval < 2.5) return Effect.succeed(interval)
 
-  // Add random fuzz to prevent clustering
-  const fuzzFactor = 0.05 // 5% fuzz
-  const fuzz = interval * fuzzFactor * (Math.random() * 2 - 1)
-  return interval + fuzz
+  return Random.next.pipe(
+    Effect.map((rand) => {
+      const fuzzFactor = 0.05 // 5% fuzz
+      const fuzz = interval * fuzzFactor * (rand * 2 - 1)
+      return interval + fuzz
+    })
+  )
 }
