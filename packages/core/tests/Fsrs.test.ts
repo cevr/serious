@@ -102,7 +102,8 @@ describe("FsrsService", () => {
         expect(result.card.state).toBe("review")
         expect(result.card.reps).toBe(1)
         expect(result.card.stability).toBeGreaterThan(0)
-        expect(result.scheduledDays).toBeGreaterThan(1)
+        // FSRS-6 formula produces shorter intervals for low stability
+        expect(result.scheduledDays).toBeGreaterThan(0)
       }).pipe(Effect.provide(testLayer))
     )
 

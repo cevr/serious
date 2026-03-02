@@ -266,17 +266,19 @@ function initializeCard(rating: Rating): {
   }
 }
 
+// FSRS-6 constants
+const DECAY = -0.5
+const FACTOR = 19 / 81
+
 function calculateRetrievability(stability: number, elapsedDays: number): number {
   if (stability === 0) return 1
-  // FSRS formula: R = (1 + t/s)^(-1)
-  // Using power-law forgetting curve
-  return Math.pow(1 + elapsedDays / (9 * stability), -1)
+  // FSRS-6: R = (1 + FACTOR * t/s)^(1/DECAY)
+  return Math.pow(1 + (FACTOR * elapsedDays) / stability, 1 / DECAY)
 }
 
 function calculateInterval(stability: number, requestedRetention: number): number {
-  // Inverse of retrievability formula to get interval for desired retention
-  // t = s * (R^(-1) - 1) * 9
-  return stability * (Math.pow(requestedRetention, -1) - 1) * 9
+  // FSRS-6: t = (s/FACTOR) * (R^DECAY - 1)
+  return (stability / FACTOR) * (Math.pow(requestedRetention, DECAY) - 1)
 }
 
 function initialDifficulty(rating: Rating): number {
