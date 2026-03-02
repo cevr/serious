@@ -327,13 +327,19 @@ export class DatabaseService extends Context.Tag("DatabaseService")<
         getDeckStats: (id) =>
           Effect.sync(() => {
             const now = new Date().toISOString()
-            const total = db.query("SELECT COUNT(*) as count FROM cards WHERE deck_id = ?").get(id) as { count: number }
-            const newCount = db.query("SELECT COUNT(*) as count FROM cards WHERE deck_id = ? AND state = 'new'").get(id) as { count: number }
-            const learning = db.query("SELECT COUNT(*) as count FROM cards WHERE deck_id = ? AND state IN ('learning', 'relearning')").get(id) as { count: number }
-            const review = db.query("SELECT COUNT(*) as count FROM cards WHERE deck_id = ? AND state = 'review'").get(id) as { count: number }
-            const due = db.query("SELECT COUNT(*) as count FROM cards WHERE deck_id = ? AND due <= ?").get(id, now) as { count: number }
 
-            // Calculate retention rate from recent reviews
+            // Single aggregate query instead of 5 separate COUNT queries
+            const stats = db.query(
+              `SELECT
+                COUNT(*) AS total,
+                SUM(CASE WHEN state = 'new' THEN 1 ELSE 0 END) AS new_count,
+                SUM(CASE WHEN state IN ('learning', 'relearning') THEN 1 ELSE 0 END) AS learning_count,
+                SUM(CASE WHEN state = 'review' THEN 1 ELSE 0 END) AS review_count,
+                SUM(CASE WHEN due <= ? THEN 1 ELSE 0 END) AS due_count
+              FROM cards WHERE deck_id = ?`
+            ).get(now, id) as { total: number; new_count: number; learning_count: number; review_count: number; due_count: number }
+
+            // Calculate retention rate from recent reviews (rating >= 2 is successful recall in FSRS)
             const recentReviews = db.query(
               `SELECT rating FROM review_logs
                WHERE card_id IN (SELECT id FROM cards WHERE deck_id = ?)
@@ -341,7 +347,7 @@ export class DatabaseService extends Context.Tag("DatabaseService")<
             ).all(id) as { rating: number }[]
 
             const retentionRate = recentReviews.length > 0
-              ? recentReviews.filter(r => r.rating >= 3).length / recentReviews.length
+              ? recentReviews.filter(r => r.rating >= 2).length / recentReviews.length
               : 0
 
             // Calculate streak
@@ -349,11 +355,11 @@ export class DatabaseService extends Context.Tag("DatabaseService")<
 
             return new DeckStats({
               deckId: id,
-              totalCards: total.count,
-              newCount: newCount.count,
-              learningCount: learning.count,
-              reviewCount: review.count,
-              dueToday: due.count,
+              totalCards: stats.total,
+              newCount: stats.new_count,
+              learningCount: stats.learning_count,
+              reviewCount: stats.review_count,
+              dueToday: stats.due_count,
               retentionRate,
               streak,
             })
