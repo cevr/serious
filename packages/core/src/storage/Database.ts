@@ -3,14 +3,17 @@ import { FileSystem, Path } from "@effect/platform"
 import { Config, Context, Effect, Layer, Option } from "effect"
 import {
   Card,
+  CardId,
   DailyProgress,
   Deck,
+  DeckId,
   DeckStats,
   ReviewLog,
+  ReviewLogId,
 } from "@serious/shared"
 import type {
-  CardId,
-  DeckId,
+  CardId as CardIdType,
+  DeckId as DeckIdType,
 } from "@serious/shared"
 import { DatabaseError } from "../errors"
 
@@ -98,28 +101,28 @@ CREATE TABLE IF NOT EXISTS settings (
 
 export interface DatabaseServiceShape {
   // Card operations
-  readonly getCard: (id: CardId) => Effect.Effect<Option.Option<Card>>
-  readonly getCardsByDeck: (deckId: DeckId) => Effect.Effect<readonly Card[]>
+  readonly getCard: (id: CardIdType) => Effect.Effect<Option.Option<Card>>
+  readonly getCardsByDeck: (deckId: DeckIdType) => Effect.Effect<readonly Card[]>
   readonly getDueCards: (
-    deckId: DeckId,
+    deckId: DeckIdType,
     limit: number,
     now: Date
   ) => Effect.Effect<readonly Card[]>
   readonly insertCard: (card: Card) => Effect.Effect<void>
   readonly updateCard: (card: Card) => Effect.Effect<void>
-  readonly deleteCard: (id: CardId) => Effect.Effect<void>
+  readonly deleteCard: (id: CardIdType) => Effect.Effect<void>
 
   // Deck operations
-  readonly getDeck: (id: DeckId) => Effect.Effect<Option.Option<Deck>>
+  readonly getDeck: (id: DeckIdType) => Effect.Effect<Option.Option<Deck>>
   readonly getAllDecks: () => Effect.Effect<readonly Deck[]>
   readonly insertDeck: (deck: Deck) => Effect.Effect<void>
   readonly updateDeck: (deck: Deck) => Effect.Effect<void>
-  readonly deleteDeck: (id: DeckId) => Effect.Effect<void>
-  readonly getDeckStats: (id: DeckId) => Effect.Effect<DeckStats>
+  readonly deleteDeck: (id: DeckIdType) => Effect.Effect<void>
+  readonly getDeckStats: (id: DeckIdType) => Effect.Effect<DeckStats>
 
   // Review logs
   readonly insertReviewLog: (log: ReviewLog) => Effect.Effect<void>
-  readonly getReviewLogs: (cardId: CardId) => Effect.Effect<readonly ReviewLog[]>
+  readonly getReviewLogs: (cardId: CardIdType) => Effect.Effect<readonly ReviewLog[]>
 
   // Daily progress
   readonly getDailyProgress: (date: string) => Effect.Effect<Option.Option<DailyProgress>>
@@ -538,15 +541,15 @@ interface DailyProgressRow {
 // Row converters
 function rowToCard(row: CardRow): Card {
   return new Card({
-    id: row.id,
-    deckId: row.deck_id,
-    type: row.type,
+    id: CardId.make(row.id),
+    deckId: DeckId.make(row.deck_id),
+    type: row.type as Card["type"],
     due: new Date(row.due),
     stability: row.stability,
     difficulty: row.difficulty,
     reps: row.reps,
     lapses: row.lapses,
-    state: row.state,
+    state: row.state as Card["state"],
     lastReview: row.last_review ? new Date(row.last_review) : null,
     front: row.front,
     back: row.back,
@@ -561,14 +564,14 @@ function rowToCard(row: CardRow): Card {
 
 function rowToDeck(row: DeckRow): Deck {
   return new Deck({
-    id: row.id,
+    id: DeckId.make(row.id),
     name: row.name,
     description: row.description,
     targetLanguage: row.target_language,
     nativeLanguage: row.native_language,
     newCardsPerDay: row.new_cards_per_day,
     reviewsPerDay: row.reviews_per_day,
-    stage: row.stage,
+    stage: row.stage as Deck["stage"],
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   })
@@ -576,10 +579,10 @@ function rowToDeck(row: DeckRow): Deck {
 
 function rowToReviewLog(row: ReviewLogRow): ReviewLog {
   return new ReviewLog({
-    id: row.id,
-    cardId: row.card_id,
-    rating: row.rating,
-    state: row.state,
+    id: ReviewLogId.make(row.id),
+    cardId: CardId.make(row.card_id),
+    rating: row.rating as ReviewLog["rating"],
+    state: row.state as ReviewLog["state"],
     scheduledDays: row.scheduled_days,
     elapsedDays: row.elapsed_days,
     reviewedAt: new Date(row.reviewed_at),

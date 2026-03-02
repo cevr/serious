@@ -19,7 +19,7 @@ export const StatsRoutesLive = HttpApiBuilder.group(SeriousApi, "stats", (handle
         let deckCount = 0
 
         for (const deck of decks) {
-          const stats = yield* deckService.getStats(deck.id)
+          const stats = yield* deckService.getStats(deck.id).pipe(Effect.orDie)
           totalCards += stats.totalCards
           totalDue += stats.dueToday
           totalNew += stats.newCount

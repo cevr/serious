@@ -44,9 +44,8 @@ export const CoreLive = Layer.mergeAll(
   ReviewService.Live,
   ImportService.Live,
 ).pipe(
-  Layer.provide(CardDeckLive),
-  Layer.provide(BaseLive),
-  Layer.provideMerge(CardDeckLive)
+  Layer.provideMerge(CardDeckLive),
+  Layer.provideMerge(BaseLive),
 )
 
 /**
