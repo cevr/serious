@@ -1,22 +1,62 @@
 import { Database } from "bun:sqlite";
 import { FileSystem, Path } from "@effect/platform";
 import { Context, Effect, Layer } from "effect";
-import { CreateCardInput, type DeckId } from "@serious/shared";
+import { Card, CreateCardInput, type DeckId } from "@serious/shared";
 import AdmZip from "adm-zip";
 
 import { ImportError } from "../errors";
-import { CardService } from "./Card";
+import { CardService, type CardServiceShape } from "./Card";
 
-export interface ImportService {
+export interface FrequencyImportOptions {
+  /** Path to frequency list file (word\tcount per line) */
+  readonly filePath: string;
+  /** Deck to import into */
+  readonly deckId: DeckId;
+  /** Max words to import (default: 1000) */
+  readonly limit?: number;
+  /** Path to extracted Tatoeba sentences.csv */
+  readonly sentencesPath?: string;
+  /** Path to extracted Tatoeba links.csv */
+  readonly linksPath?: string;
+  /** ISO 639-3 language code for target language (e.g. "fra", "spa") */
+  readonly langCode?: string;
+}
+
+export interface TatoebaEnrichResult {
+  /** Cards enriched with example sentences */
+  readonly enriched: number;
+  /** Cards with no matching sentences */
+  readonly noMatch: number;
+}
+
+export interface ImportResult {
+  readonly imported: number;
+  readonly skipped: number;
+}
+
+export interface ImportServiceShape {
   readonly importApkg: (
     buffer: Uint8Array,
     deckId: DeckId,
-  ) => Effect.Effect<{ imported: number; skipped: number }, ImportError>;
+  ) => Effect.Effect<ImportResult, ImportError>;
+
+  /** Import top N words from a frequency list, optionally enriched with Tatoeba example sentences */
+  readonly importFrequencyList: (
+    options: FrequencyImportOptions,
+  ) => Effect.Effect<ImportResult, ImportError>;
+
+  /** Enrich existing cards in a deck with Tatoeba example sentence pairs */
+  readonly enrichWithTatoeba: (
+    deckId: DeckId,
+    sentencesPath: string,
+    linksPath: string,
+    langCode: string,
+  ) => Effect.Effect<TatoebaEnrichResult, ImportError>;
 }
 
 export class ImportService extends Context.Tag("ImportService")<
   ImportService,
-  ImportService
+  ImportServiceShape
 >() {
   static Live = Layer.effect(
     ImportService,
@@ -84,6 +124,143 @@ export class ImportService extends Context.Tag("ImportService")<
 
             return result;
           }),
+
+        importFrequencyList: (options) =>
+          Effect.gen(function* () {
+            const {
+              filePath,
+              deckId,
+              limit = 1000,
+              sentencesPath,
+              linksPath,
+              langCode,
+            } = options;
+
+            // Read frequency list
+            const content = yield* fs
+              .readFileString(filePath)
+              .pipe(
+                Effect.mapError(
+                  () =>
+                    new ImportError({
+                      message: `Failed to read frequency list: ${filePath}`,
+                      path: filePath,
+                    }),
+                ),
+              );
+
+            const words = parseFrequencyList(content, limit);
+
+            if (words.length === 0) {
+              return yield* Effect.fail(
+                new ImportError({
+                  message: "Frequency list is empty or has invalid format",
+                  path: filePath,
+                }),
+              );
+            }
+
+            // Optionally load Tatoeba sentence pairs for enrichment
+            let sentencePairs: Map<string, SentencePair[]> | undefined;
+            if (sentencesPath && linksPath && langCode) {
+              sentencePairs = yield* loadTatoebaPairs(
+                fs,
+                sentencesPath,
+                linksPath,
+                langCode,
+              );
+            }
+
+            let imported = 0;
+            let skipped = 0;
+
+            for (const { word } of words) {
+              // Find example sentence pair if available
+              let personalNote: string | undefined;
+              let back = word; // Default: same word (user adds translation later)
+
+              if (sentencePairs) {
+                const pairs = findSentencePairs(sentencePairs, word);
+                if (pairs.length > 0) {
+                  const pair = pairs[0]!;
+                  back = pair.english;
+                  const examples = pairs
+                    .slice(0, 2)
+                    .map((p) => `${p.target}\n→ ${p.english}`)
+                    .join("\n\n");
+                  personalNote = examples;
+                }
+              }
+
+              const input = new CreateCardInput({
+                deckId,
+                type: "basic",
+                front: word,
+                back,
+                personalNote,
+              });
+
+              yield* cardService.create(input).pipe(
+                Effect.map(() => {
+                  imported++;
+                }),
+                Effect.catchAll(() => {
+                  skipped++;
+                  return Effect.void;
+                }),
+              );
+            }
+
+            return { imported, skipped };
+          }),
+
+        enrichWithTatoeba: (deckId, sentencesPath, linksPath, langCode) =>
+          Effect.gen(function* () {
+            const sentencePairs = yield* loadTatoebaPairs(
+              fs,
+              sentencesPath,
+              linksPath,
+              langCode,
+            );
+
+            // Get all cards in the deck
+            const cards = yield* cardService.getByDeck(deckId);
+
+            let enriched = 0;
+            let noMatch = 0;
+
+            for (const card of cards) {
+              // Skip cards that already have a personal note
+              if (card.personalNote) {
+                continue;
+              }
+
+              const pairs = findSentencePairs(sentencePairs, card.front);
+              if (pairs.length === 0) {
+                noMatch++;
+                continue;
+              }
+
+              const examples = pairs
+                .slice(0, 2)
+                .map((p) => `${p.target}\n→ ${p.english}`)
+                .join("\n\n");
+
+              yield* cardService
+                .update(card.id, new Card({ ...card, personalNote: examples }))
+                .pipe(
+                  Effect.map(() => {
+                    enriched++;
+                  }),
+                  Effect.catchAll(() => {
+                    noMatch++;
+                    return Effect.void;
+                  }),
+                );
+            }
+
+            return { enriched, noMatch };
+          }),
       });
     }),
   );
@@ -92,6 +269,8 @@ export class ImportService extends Context.Tag("ImportService")<
     ImportService,
     ImportService.of({
       importApkg: () => Effect.succeed({ imported: 0, skipped: 0 }),
+      importFrequencyList: () => Effect.succeed({ imported: 0, skipped: 0 }),
+      enrichWithTatoeba: () => Effect.succeed({ enriched: 0, noMatch: 0 }),
     }),
   );
 }
@@ -101,8 +280,8 @@ export class ImportService extends Context.Tag("ImportService")<
 function parseAndImport(
   dbPath: string,
   deckId: DeckId,
-  cardService: CardService,
-) {
+  cardService: CardServiceShape,
+): Effect.Effect<ImportResult, ImportError> {
   return Effect.gen(function* () {
     const ankiDb = new Database(dbPath, { readonly: true });
 
@@ -183,6 +362,169 @@ interface AnkiModel {
 interface AnkiNote {
   mid: number;
   flds: string;
+}
+
+// --- Frequency list parsing ---
+
+interface FrequencyWord {
+  readonly word: string;
+  readonly count: number;
+}
+
+function parseFrequencyList(content: string, limit: number): FrequencyWord[] {
+  const words: FrequencyWord[] = [];
+
+  for (const line of content.split("\n")) {
+    if (words.length >= limit) break;
+
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // Format: "word count" (space-separated)
+    const spaceIdx = trimmed.lastIndexOf(" ");
+    if (spaceIdx === -1) continue;
+
+    const word = trimmed.slice(0, spaceIdx).trim();
+    const count = parseInt(trimmed.slice(spaceIdx + 1), 10);
+
+    if (!word || isNaN(count)) continue;
+
+    // Skip single-char function words and numbers
+    if (word.length === 1 && /^[a-z0-9]$/i.test(word)) continue;
+
+    words.push({ word, count });
+  }
+
+  return words;
+}
+
+// --- Tatoeba sentence pair loading ---
+
+interface SentencePair {
+  readonly target: string;
+  readonly english: string;
+}
+
+/**
+ * Load Tatoeba sentences + links and build a word → sentence pair index.
+ * This is memory-intensive (~300-500MB for full dataset) but runs once per import.
+ */
+function loadTatoebaPairs(
+  fs: FileSystem.FileSystem,
+  sentencesPath: string,
+  linksPath: string,
+  langCode: string,
+): Effect.Effect<Map<string, SentencePair[]>, ImportError> {
+  return Effect.gen(function* () {
+    // Read sentences file
+    const sentencesContent = yield* fs
+      .readFileString(sentencesPath)
+      .pipe(
+        Effect.mapError(
+          () =>
+            new ImportError({
+              message: `Failed to read Tatoeba sentences: ${sentencesPath}`,
+              path: sentencesPath,
+            }),
+        ),
+      );
+
+    // Build sentence lookup: id → { lang, text }
+    const sentences = new Map<string, { lang: string; text: string }>();
+    for (const line of sentencesContent.split("\n")) {
+      const parts = line.split("\t");
+      if (parts.length < 3) continue;
+      const [id, lang, text] = parts;
+      if (!id || !lang || !text) continue;
+
+      // Only keep target language and English sentences
+      if (lang === langCode || lang === "eng") {
+        sentences.set(id, { lang, text });
+      }
+    }
+
+    // Read links file
+    const linksContent = yield* fs
+      .readFileString(linksPath)
+      .pipe(
+        Effect.mapError(
+          () =>
+            new ImportError({
+              message: `Failed to read Tatoeba links: ${linksPath}`,
+              path: linksPath,
+            }),
+        ),
+      );
+
+    // Build translation map: target_id → english_text
+    const translations = new Map<string, string>();
+    for (const line of linksContent.split("\n")) {
+      const parts = line.split("\t");
+      if (parts.length < 2) continue;
+      const [fromId, toId] = parts;
+      if (!fromId || !toId) continue;
+
+      const from = sentences.get(fromId);
+      const to = sentences.get(toId);
+      if (!from || !to) continue;
+
+      // target → english direction
+      if (from.lang === langCode && to.lang === "eng") {
+        translations.set(fromId, to.text);
+      }
+    }
+
+    // Build word → sentence pair index
+    // Index by lowercase words found in target-language sentences
+    const wordIndex = new Map<string, SentencePair[]>();
+
+    for (const [id, sentence] of sentences) {
+      if (sentence.lang !== langCode) continue;
+
+      const englishTranslation = translations.get(id);
+      if (!englishTranslation) continue;
+
+      const pair: SentencePair = {
+        target: sentence.text,
+        english: englishTranslation,
+      };
+
+      // Extract words from the target sentence
+      const words = sentence.text
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}\s'-]/gu, "")
+        .split(/\s+/)
+        .filter((w) => w.length > 1);
+
+      for (const word of words) {
+        let pairs = wordIndex.get(word);
+        if (!pairs) {
+          pairs = [];
+          wordIndex.set(word, pairs);
+        }
+        // Cap at 5 pairs per word to limit memory
+        if (pairs.length < 5) {
+          pairs.push(pair);
+        }
+      }
+    }
+
+    return wordIndex;
+  });
+}
+
+/**
+ * Find sentence pairs containing a word, preferring shorter sentences.
+ */
+function findSentencePairs(
+  index: Map<string, SentencePair[]>,
+  word: string,
+): SentencePair[] {
+  const pairs = index.get(word.toLowerCase());
+  if (!pairs || pairs.length === 0) return [];
+
+  // Sort by target sentence length (prefer shorter, more focused examples)
+  return [...pairs].sort((a, b) => a.target.length - b.target.length);
 }
 
 // --- Helpers ---
