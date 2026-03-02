@@ -130,6 +130,9 @@ export interface DatabaseServiceShape {
   // Settings
   readonly getSetting: (key: string) => Effect.Effect<Option.Option<string>>
   readonly setSetting: (key: string, value: string) => Effect.Effect<void>
+
+  // Transaction support
+  readonly transaction: <A>(fn: () => A) => Effect.Effect<A>
 }
 
 export class DatabaseService extends Context.Tag("DatabaseService")<
@@ -426,6 +429,9 @@ export class DatabaseService extends Context.Tag("DatabaseService")<
               "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
             ).run(key, value)
           }),
+
+        transaction: (fn) =>
+          Effect.sync(() => db.transaction(fn)()),
       })
     })
   )
@@ -463,6 +469,7 @@ export class DatabaseService extends Context.Tag("DatabaseService")<
       upsertDailyProgress: () => Effect.void,
       getSetting: () => Effect.succeed(Option.none()),
       setSetting: () => Effect.void,
+      transaction: (fn) => Effect.sync(fn),
     })
   )
 }

@@ -72,10 +72,7 @@ export class ReviewService extends Context.Tag("ReviewService")<
             // Schedule the card
             const scheduled = yield* fsrs.schedule(card, rating, now)
 
-            // Update the card
-            yield* db.updateCard(scheduled.card)
-
-            // Log the review
+            // Build the review log
             const log = new ReviewLog({
               id: ReviewLogId.generate(),
               cardId,
@@ -85,7 +82,12 @@ export class ReviewService extends Context.Tag("ReviewService")<
               elapsedDays: scheduled.elapsedDays,
               reviewedAt: now,
             })
-            yield* db.insertReviewLog(log)
+
+            // Update card + insert log atomically
+            yield* db.transaction(() => {
+              Effect.runSync(db.updateCard(scheduled.card))
+              Effect.runSync(db.insertReviewLog(log))
+            })
 
             return scheduled
           }),
