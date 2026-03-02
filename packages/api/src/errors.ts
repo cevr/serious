@@ -1,7 +1,7 @@
 import { Schema as S } from "effect"
 
 // API error schemas for HTTP responses
-export class DeckNotFoundError extends S.TaggedClass<DeckNotFoundError>()(
+export class DeckNotFoundError extends S.TaggedError<DeckNotFoundError>()(
   "DeckNotFoundError",
   {
     deckId: S.String,
@@ -9,7 +9,7 @@ export class DeckNotFoundError extends S.TaggedClass<DeckNotFoundError>()(
   }
 ) {}
 
-export class CardNotFoundError extends S.TaggedClass<CardNotFoundError>()(
+export class CardNotFoundError extends S.TaggedError<CardNotFoundError>()(
   "CardNotFoundError",
   {
     cardId: S.String,
@@ -17,7 +17,7 @@ export class CardNotFoundError extends S.TaggedClass<CardNotFoundError>()(
   }
 ) {}
 
-export class ValidationError extends S.TaggedClass<ValidationError>()(
+export class ValidationError extends S.TaggedError<ValidationError>()(
   "ValidationError",
   {
     message: S.String,
