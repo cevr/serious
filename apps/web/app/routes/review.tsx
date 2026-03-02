@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef } from "react";
 import { useFetcher, useLoaderData, useNavigate } from "react-router";
 
 import { DeckService, ReviewService } from "@serious/core";
@@ -12,6 +12,29 @@ import { RatingButtons } from "~/components/rating-buttons";
 import { ReviewProgress } from "~/components/review-progress";
 import { SessionSummary } from "~/components/session-summary";
 import { speakText } from "~/lib/audio";
+
+type ReviewState =
+  | { status: "reviewing"; index: number; flipped: boolean; correct: number; wrong: number }
+  | { status: "done"; correct: number; wrong: number };
+
+type ReviewAction =
+  | { type: "flip" }
+  | { type: "rate"; rating: Rating };
+
+function reviewReducer(state: ReviewState, action: ReviewAction): ReviewState {
+  if (state.status === "done") return state;
+
+  switch (action.type) {
+    case "flip":
+      return { ...state, flipped: !state.flipped };
+    case "rate": {
+      const isCorrect = action.rating >= 3;
+      const correct = state.correct + (isCorrect ? 1 : 0);
+      const wrong = state.wrong + (isCorrect ? 0 : 1);
+      return { ...state, correct, wrong, index: state.index + 1, flipped: false };
+    }
+  }
+}
 
 export const loader = routeHandler(function* (_resume, args) {
   const deckId = DeckId.make(args.params.id!);
@@ -64,87 +87,79 @@ export const action = routeAction(function* (_resume, args) {
 
 export default function Review() {
   const { deck, cards } = useLoaderData<typeof loader>();
-  const fetcher = useFetcher();
+  const reviewFetcher = useFetcher();
+  const sessionFetcher = useFetcher();
   const navigate = useNavigate();
 
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isFlipped, setIsFlipped] = useState(false);
-  const [correct, setCorrect] = useState(0);
-  const [wrong, setWrong] = useState(0);
-  const [done, setDone] = useState(false);
+  const [state, dispatch] = useReducer(reviewReducer, {
+    status: "reviewing",
+    index: 0,
+    flipped: false,
+    correct: 0,
+    wrong: 0,
+  });
   const startedAt = useRef(new Date().toISOString());
   const startTime = useRef(Date.now());
 
-  const currentCard = cards[currentIndex];
+  const isDone = state.status === "done" || (state.status === "reviewing" && state.index >= cards.length);
+  const currentCard = state.status === "reviewing" ? cards[state.index] : undefined;
+  const isFlipped = state.status === "reviewing" && state.flipped;
 
   const handleFlip = useCallback(() => {
-    setIsFlipped((prev) => !prev);
+    dispatch({ type: "flip" });
   }, []);
 
-  const handleRate = useCallback(
-    (rating: Rating) => {
-      if (!currentCard) return;
+  // Use ref to avoid stale closures in keyboard handler
+  const handleRateRef = useRef<(rating: Rating) => void>(() => {});
+  handleRateRef.current = (rating: Rating) => {
+    if (!currentCard || isDone) return;
 
-      // Submit review
-      fetcher.submit(
-        { intent: "review", cardId: currentCard.id, rating: String(rating) },
+    // Submit review via dedicated fetcher
+    reviewFetcher.submit(
+      { intent: "review", cardId: currentCard.id, rating: String(rating) },
+      { method: "post" },
+    );
+
+    // Check if this is the last card — record session via separate fetcher
+    if (state.status === "reviewing" && state.index + 1 >= cards.length) {
+      const isCorrect = rating >= 3;
+      const elapsed = Math.round((Date.now() - startTime.current) / 1000);
+      sessionFetcher.submit(
+        {
+          intent: "record-session",
+          reviewed: String(state.index + 1),
+          correct: String(state.correct + (isCorrect ? 1 : 0)),
+          wrong: String(state.wrong + (isCorrect ? 0 : 1)),
+          timeSpentSeconds: String(elapsed),
+          startedAt: startedAt.current,
+        },
         { method: "post" },
       );
+    }
 
-      // Track stats
-      if (rating >= 3) {
-        setCorrect((c) => c + 1);
-      } else {
-        setWrong((w) => w + 1);
-      }
+    dispatch({ type: "rate", rating });
+  };
 
-      // Next card
-      if (currentIndex + 1 >= cards.length) {
-        // Record session
-        const elapsed = Math.round((Date.now() - startTime.current) / 1000);
-        fetcher.submit(
-          {
-            intent: "record-session",
-            reviewed: String(currentIndex + 1),
-            correct: String(rating >= 3 ? correct + 1 : correct),
-            wrong: String(rating < 3 ? wrong + 1 : wrong),
-            timeSpentSeconds: String(elapsed),
-            startedAt: startedAt.current,
-          },
-          { method: "post" },
-        );
-        setDone(true);
-      } else {
-        setCurrentIndex((i) => i + 1);
-        setIsFlipped(false);
-      }
-    },
-    [currentCard, currentIndex, cards.length, correct, wrong, fetcher],
-  );
+  const handleRate = useCallback((rating: Rating) => {
+    handleRateRef.current(rating);
+  }, []);
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts — stable ref avoids listener churn
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (done) return;
-
       if (e.key === " " || e.key === "Enter") {
         e.preventDefault();
-        if (!isFlipped) {
-          handleFlip();
-        }
+        handleFlip();
       }
-
-      if (isFlipped) {
-        if (e.key === "1") handleRate(1);
-        if (e.key === "2") handleRate(2);
-        if (e.key === "3") handleRate(3);
-        if (e.key === "4") handleRate(4);
-      }
+      if (e.key === "1") handleRateRef.current(1);
+      if (e.key === "2") handleRateRef.current(2);
+      if (e.key === "3") handleRateRef.current(3);
+      if (e.key === "4") handleRateRef.current(4);
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isFlipped, done, handleFlip, handleRate]);
+  }, [handleFlip]);
 
   // TTS for current card
   const handleSpeak = useCallback(() => {
@@ -170,12 +185,12 @@ export default function Review() {
     );
   }
 
-  if (done) {
+  if (isDone) {
     return (
       <SessionSummary
-        reviewed={correct + wrong}
-        correct={correct}
-        wrong={wrong}
+        reviewed={state.correct + state.wrong}
+        correct={state.correct}
+        wrong={state.wrong}
         timeSpentSeconds={Math.round((Date.now() - startTime.current) / 1000)}
         deckId={deck.id}
         deckName={deck.name}
@@ -186,10 +201,10 @@ export default function Review() {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center px-4">
       <ReviewProgress
-        current={currentIndex + 1}
+        current={(state.status === "reviewing" ? state.index : 0) + 1}
         total={cards.length}
-        correct={correct}
-        wrong={wrong}
+        correct={state.correct}
+        wrong={state.wrong}
       />
 
       {currentCard && (
