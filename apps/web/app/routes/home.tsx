@@ -30,11 +30,17 @@ export const action = routeAction(function* (_resume, args) {
   const intent = formData.get("intent") as string;
 
   if (intent === "create-deck") {
+    const name = formData.get("name");
+    const targetLanguage = formData.get("targetLanguage");
+    const nativeLanguage = formData.get("nativeLanguage");
+    if (!name || !targetLanguage || !nativeLanguage) {
+      return { ok: false };
+    }
     const deckService = yield* DeckService;
     const input = new CreateDeckInput({
-      name: formData.get("name") as string,
-      targetLanguage: formData.get("targetLanguage") as string,
-      nativeLanguage: formData.get("nativeLanguage") as string,
+      name: name as string,
+      targetLanguage: targetLanguage as string,
+      nativeLanguage: nativeLanguage as string,
       description: (formData.get("description") as string) || undefined,
     });
     yield* deckService.create(input);

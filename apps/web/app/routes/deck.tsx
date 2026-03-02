@@ -3,7 +3,7 @@ import { Link, redirect, useFetcher, useLoaderData } from "react-router";
 import type { Route } from "./+types/deck";
 
 import { CardService, DeckService, ImportService } from "@serious/core";
-import { CreateCardInput, DeckId } from "@serious/shared";
+import { CardId, CreateCardInput, DeckId } from "@serious/shared";
 import type { Card, Deck, DeckStats } from "@serious/shared";
 
 import { routeAction, routeHandler } from "~/lib/effect/route.server";
@@ -57,8 +57,9 @@ export const action = routeAction(function* (_resume, args) {
 
   if (intent === "delete-card") {
     const cardService = yield* CardService;
-    const cardId = formData.get("cardId") as string;
-    yield* cardService.delete(cardId as any);
+    const cardIdRaw = formData.get("cardId");
+    if (!cardIdRaw) return { ok: false };
+    yield* cardService.delete(CardId.make(cardIdRaw as string));
     return { ok: true };
   }
 

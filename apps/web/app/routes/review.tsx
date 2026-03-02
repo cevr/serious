@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useFetcher, useLoaderData, useNavigate } from "react-router";
 
 import { DeckService, ReviewService } from "@serious/core";
-import { DeckId, SessionStats } from "@serious/shared";
+import { CardId, DeckId, SessionStats } from "@serious/shared";
 import type { Card, Deck, Rating } from "@serious/shared";
 
 import { routeAction, routeHandler } from "~/lib/effect/route.server";
@@ -33,9 +33,15 @@ export const action = routeAction(function* (_resume, args) {
 
   if (intent === "review") {
     const reviewService = yield* ReviewService;
-    const cardId = formData.get("cardId") as string;
-    const rating = Number(formData.get("rating")) as Rating;
-    const result = yield* reviewService.submitReview(cardId as any, rating);
+    const cardIdRaw = formData.get("cardId");
+    const ratingRaw = Number(formData.get("rating"));
+    if (!cardIdRaw || ![1, 2, 3, 4].includes(ratingRaw)) {
+      return { ok: false };
+    }
+    const result = yield* reviewService.submitReview(
+      CardId.make(cardIdRaw as string),
+      ratingRaw as Rating,
+    );
     return { scheduledDays: result.scheduledDays };
   }
 
