@@ -9,7 +9,7 @@ import {
 import { DatabaseService } from "../storage/Database"
 import { DeckNotFound } from "../errors"
 
-export interface DeckService {
+export interface DeckServiceShape {
   readonly create: (input: CreateDeckInput) => Effect.Effect<Deck>
   readonly get: (id: DeckIdType) => Effect.Effect<Deck, DeckNotFound>
   readonly getAll: () => Effect.Effect<readonly Deck[]>
@@ -23,7 +23,7 @@ export interface DeckService {
 
 export class DeckService extends Context.Tag("DeckService")<
   DeckService,
-  DeckService
+  DeckServiceShape
 >() {
   static Live = Layer.effect(
     DeckService,

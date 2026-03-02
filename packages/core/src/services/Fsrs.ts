@@ -24,7 +24,7 @@ export interface ScheduledCard {
   elapsedDays: number
 }
 
-export interface FsrsService {
+export interface FsrsServiceShape {
   /**
    * Schedule a card based on the user's rating
    */
@@ -52,7 +52,7 @@ export interface FsrsService {
 
 export class FsrsService extends Context.Tag("FsrsService")<
   FsrsService,
-  FsrsService
+  FsrsServiceShape
 >() {
   static Live = Layer.succeed(
     FsrsService,

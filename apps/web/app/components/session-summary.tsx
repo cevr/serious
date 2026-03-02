@@ -61,11 +61,11 @@ export function SessionSummary({
           </p>
 
           <div className="mt-6 flex justify-center gap-3">
-            <Button asChild variant="secondary">
-              <Link to={`/decks/${deckId}`}>Back to Deck</Link>
+            <Button render={<Link to={`/decks/${deckId}`} />} variant="secondary">
+              Back to Deck
             </Button>
-            <Button asChild>
-              <Link to="/">Home</Link>
+            <Button render={<Link to="/" />}>
+              Home
             </Button>
           </div>
         </CardContent>

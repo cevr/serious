@@ -19,9 +19,7 @@ export function CreateDeckDialog() {
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogTrigger asChild>
-        <Button>New Deck</Button>
-      </AlertDialogTrigger>
+      <AlertDialogTrigger render={<Button />}>New Deck</AlertDialogTrigger>
       <AlertDialogContent>
         <fetcher.Form
           method="post"

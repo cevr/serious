@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 `
 
-export interface DatabaseService {
+export interface DatabaseServiceShape {
   // Card operations
   readonly getCard: (id: CardId) => Effect.Effect<Option.Option<Card>>
   readonly getCardsByDeck: (deckId: DeckId) => Effect.Effect<readonly Card[]>
@@ -134,7 +134,7 @@ export interface DatabaseService {
 
 export class DatabaseService extends Context.Tag("DatabaseService")<
   DatabaseService,
-  DatabaseService
+  DatabaseServiceShape
 >() {
   static Live = Layer.scoped(
     DatabaseService,
@@ -589,7 +589,7 @@ function calculateStreak(db: Database): number {
   if (rows.length === 0) return 0
 
   let streak = 0
-  const today = new Date().toISOString().split("T")[0]
+  const today = new Date().toISOString().split("T")[0]!
   let expectedDate = today
 
   for (const row of rows) {

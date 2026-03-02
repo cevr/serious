@@ -14,7 +14,7 @@ import { FsrsService, type ScheduledCard } from "./Fsrs"
 import { CardService } from "./Card"
 import { CardNotFound } from "../errors"
 
-export interface ReviewService {
+export interface ReviewServiceShape {
   /**
    * Get cards due for review in a deck
    */
@@ -52,7 +52,7 @@ export interface ReviewService {
 
 export class ReviewService extends Context.Tag("ReviewService")<
   ReviewService,
-  ReviewService
+  ReviewServiceShape
 >() {
   static Live = Layer.effect(
     ReviewService,

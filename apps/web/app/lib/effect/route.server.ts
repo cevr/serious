@@ -14,10 +14,13 @@ import { runLoaderEffect } from "./runtime.server";
  *   })
  */
 export function routeHandler<Eff extends YieldWrap<Effect.Effect<any, any, any>>, A>(
-  body: (resume: Effect.Adapter) => Generator<Eff, A, never>,
+  body: (
+    resume: Effect.Adapter,
+    args: LoaderFunctionArgs,
+  ) => Generator<Eff, A, never>,
 ) {
-  return (_args: LoaderFunctionArgs): Promise<A> =>
-    runLoaderEffect(Effect.gen(body));
+  return (args: LoaderFunctionArgs): Promise<A> =>
+    runLoaderEffect(Effect.gen((resume) => body(resume, args)) as Effect.Effect<A, unknown, never>);
 }
 
 /**
@@ -36,5 +39,5 @@ export function routeAction<Eff extends YieldWrap<Effect.Effect<any, any, any>>,
   ) => Generator<Eff, A, never>,
 ) {
   return (args: LoaderFunctionArgs): Promise<A> =>
-    runLoaderEffect(Effect.gen((resume) => body(resume, args)));
+    runLoaderEffect(Effect.gen((resume) => body(resume, args)) as Effect.Effect<A, unknown, never>);
 }

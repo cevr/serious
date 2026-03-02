@@ -8,15 +8,15 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@effect/platform": "0.93.0",
-    "@effect/platform-bun": "0.83.0",
+    "@effect/platform": "0.94.5",
+    "@effect/platform-bun": "0.87.1",
     "@serious/api": "workspace:*",
     "@serious/core": "workspace:*",
     "@serious/shared": "workspace:*",
-    "effect": "3.19.3"
+    "effect": "3.19.19"
   },
   "devDependencies": {
-    "bun-types": "^1.3.6",
+    "bun-types": "^1.3.10",
     "typescript": "^5.9.3"
   }
 }

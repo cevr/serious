@@ -104,10 +104,8 @@ export default function DeckDetail() {
         </div>
         <div className="flex gap-2">
           {stats.dueToday > 0 && (
-            <Button asChild>
-              <Link to={`/decks/${deck.id}/review`}>
-                Review ({stats.dueToday})
-              </Link>
+            <Button render={<Link to={`/decks/${deck.id}/review`} />}>
+              Review ({stats.dueToday})
             </Button>
           )}
           <fetcher.Form method="post">

@@ -10,7 +10,7 @@ import { DatabaseService } from "../storage/Database"
 import { FsrsService } from "./Fsrs"
 import { CardNotFound } from "../errors"
 
-export interface CardService {
+export interface CardServiceShape {
   readonly create: (input: CreateCardInput) => Effect.Effect<Card>
   readonly get: (id: CardId) => Effect.Effect<Card, CardNotFound>
   readonly getByDeck: (deckId: DeckId) => Effect.Effect<readonly Card[]>
@@ -27,7 +27,7 @@ export interface CardService {
 
 export class CardService extends Context.Tag("CardService")<
   CardService,
-  CardService
+  CardServiceShape
 >() {
   static Live = Layer.effect(
     CardService,
