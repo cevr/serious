@@ -109,6 +109,10 @@ export interface DatabaseServiceShape {
     limit: number,
     now: Date
   ) => Effect.Effect<readonly Card[]>
+  readonly countNewCardsIntroducedToday: (
+    deckId: DeckIdType,
+    todayStr: string
+  ) => Effect.Effect<number>
   readonly insertCard: (card: Card) => Effect.Effect<void>
   readonly updateCard: (card: Card) => Effect.Effect<void>
   readonly deleteCard: (id: CardIdType) => Effect.Effect<void>
@@ -209,11 +213,31 @@ export class DatabaseService extends Context.Tag("DatabaseService")<
               .query(
                 `SELECT * FROM cards
                  WHERE deck_id = ? AND due <= ?
-                 ORDER BY due ASC
+                 ORDER BY
+                   CASE state
+                     WHEN 'learning' THEN 0
+                     WHEN 'relearning' THEN 1
+                     WHEN 'review' THEN 2
+                     WHEN 'new' THEN 3
+                   END,
+                   due ASC
                  LIMIT ?`
               )
               .all(deckId, now.toISOString(), limit) as CardRow[]
             return rows.map(rowToCard)
+          }),
+
+        countNewCardsIntroducedToday: (deckId, todayStr) =>
+          Effect.sync(() => {
+            const result = db
+              .query(
+                `SELECT COUNT(DISTINCT r.card_id) AS count
+                 FROM review_logs r
+                 JOIN cards c ON r.card_id = c.id
+                 WHERE c.deck_id = ? AND r.state = 'new' AND r.reviewed_at >= ?`
+              )
+              .get(deckId, todayStr) as { count: number } | null
+            return result?.count ?? 0
           }),
 
         insertCard: (card) =>
@@ -503,6 +527,7 @@ export class DatabaseService extends Context.Tag("DatabaseService")<
       insertCard: () => Effect.void,
       updateCard: () => Effect.void,
       deleteCard: () => Effect.void,
+      countNewCardsIntroducedToday: () => Effect.succeed(0),
       getFilteredCards: () => Effect.succeed({ cards: [], total: 0 }),
       getDeck: () => Effect.succeed(Option.none()),
       getAllDecks: () => Effect.succeed([]),

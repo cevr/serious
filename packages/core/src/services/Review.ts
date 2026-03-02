@@ -12,6 +12,7 @@ import {
 import { DatabaseService } from "../storage/Database"
 import { FsrsService, type ScheduledCard } from "./Fsrs"
 import { CardService } from "./Card"
+import { DeckService } from "./Deck"
 import { CardNotFound } from "../errors"
 
 export interface ReviewServiceShape {
@@ -60,12 +61,57 @@ export class ReviewService extends Context.Tag("ReviewService")<
       const db = yield* DatabaseService
       const fsrs = yield* FsrsService
       const cardService = yield* CardService
+      const deckService = yield* DeckService
 
       return ReviewService.of({
         getDueCards: (deckId, limit) =>
-          Clock.currentTimeMillis.pipe(
-            Effect.flatMap((millis) => db.getDueCards(deckId, limit, new Date(millis)))
-          ),
+          Effect.gen(function* () {
+            const now = new Date(yield* Clock.currentTimeMillis)
+            const todayStr = now.toISOString().split("T")[0]!
+
+            // Fetch all due cards (over-fetch, then filter by limits)
+            const allDue = yield* db.getDueCards(deckId, limit, now)
+
+            // Get deck settings for daily limits
+            const deck = yield* deckService.get(deckId).pipe(
+              Effect.catchAll(() => Effect.succeed(null))
+            )
+            if (!deck) return allDue
+
+            const newCardsPerDay = deck.newCardsPerDay
+            const reviewsPerDay = deck.reviewsPerDay
+
+            // Count new cards already introduced today
+            const newCardsToday = yield* db.countNewCardsIntroducedToday(deckId, todayStr)
+
+            // Partition due cards by category
+            const learning: Card[] = []
+            const review: Card[] = []
+            const newCards: Card[] = []
+
+            for (const card of allDue) {
+              if (card.state === "learning" || card.state === "relearning") {
+                learning.push(card)
+              } else if (card.state === "review") {
+                review.push(card)
+              } else if (card.state === "new") {
+                newCards.push(card)
+              }
+            }
+
+            // Learning/relearning cards always come first (no limit — intra-day steps)
+            const result: Card[] = [...learning]
+
+            // Then review cards up to reviewsPerDay
+            const reviewSlots = Math.max(0, reviewsPerDay - learning.length)
+            result.push(...review.slice(0, reviewSlots))
+
+            // Then new cards up to remaining newCardsPerDay
+            const newSlots = Math.max(0, newCardsPerDay - newCardsToday)
+            result.push(...newCards.slice(0, newSlots))
+
+            return result.slice(0, limit)
+          }),
 
         submitReview: (cardId, rating) =>
           Effect.gen(function* () {
