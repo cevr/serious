@@ -26,9 +26,9 @@ CREATE TABLE IF NOT EXISTS decks (
   description TEXT,
   target_language TEXT NOT NULL,
   native_language TEXT NOT NULL,
-  new_cards_per_day INTEGER DEFAULT 20,
-  reviews_per_day INTEGER DEFAULT 200,
-  stage TEXT DEFAULT 'vocabulary',
+  new_cards_per_day INTEGER NOT NULL DEFAULT 20 CHECK(new_cards_per_day > 0),
+  reviews_per_day INTEGER NOT NULL DEFAULT 200 CHECK(reviews_per_day > 0),
+  stage TEXT NOT NULL DEFAULT 'vocabulary' CHECK(stage IN ('pronunciation', 'vocabulary', 'grammar')),
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -37,18 +37,18 @@ CREATE TABLE IF NOT EXISTS decks (
 CREATE TABLE IF NOT EXISTS cards (
   id TEXT PRIMARY KEY,
   deck_id TEXT NOT NULL REFERENCES decks(id) ON DELETE CASCADE,
-  type TEXT NOT NULL,
+  type TEXT NOT NULL CHECK(type IN ('basic', 'minimal-pair', 'cloze', 'image-word', 'ipa', 'spelling')),
 
   -- FSRS scheduling fields
   due TEXT NOT NULL,
   stability REAL NOT NULL DEFAULT 0,
   difficulty REAL NOT NULL DEFAULT 0,
-  reps INTEGER DEFAULT 0,
-  lapses INTEGER DEFAULT 0,
-  state TEXT DEFAULT 'new',
+  reps INTEGER NOT NULL DEFAULT 0,
+  lapses INTEGER NOT NULL DEFAULT 0,
+  state TEXT NOT NULL DEFAULT 'new' CHECK(state IN ('new', 'learning', 'review', 'relearning')),
   last_review TEXT,
 
-  -- Content (JSON strings)
+  -- Content
   front TEXT NOT NULL,
   back TEXT NOT NULL,
 
@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS cards (
   personal_note TEXT,
 
   -- Organization
-  tags TEXT DEFAULT '[]',
+  tags TEXT NOT NULL DEFAULT '[]',
   created_at TEXT NOT NULL
 );
 
@@ -73,8 +73,8 @@ CREATE INDEX IF NOT EXISTS idx_cards_state ON cards(state);
 CREATE TABLE IF NOT EXISTS review_logs (
   id TEXT PRIMARY KEY,
   card_id TEXT NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
-  rating INTEGER NOT NULL,
-  state TEXT NOT NULL,
+  rating INTEGER NOT NULL CHECK(rating IN (1, 2, 3, 4)),
+  state TEXT NOT NULL CHECK(state IN ('new', 'learning', 'review', 'relearning')),
   scheduled_days REAL NOT NULL,
   elapsed_days REAL NOT NULL,
   reviewed_at TEXT NOT NULL
@@ -82,14 +82,15 @@ CREATE TABLE IF NOT EXISTS review_logs (
 
 CREATE INDEX IF NOT EXISTS idx_review_logs_card ON review_logs(card_id);
 CREATE INDEX IF NOT EXISTS idx_review_logs_date ON review_logs(reviewed_at);
+CREATE INDEX IF NOT EXISTS idx_review_logs_card_date ON review_logs(card_id, reviewed_at DESC);
 
 -- Daily progress for streak tracking
 CREATE TABLE IF NOT EXISTS daily_progress (
   date TEXT PRIMARY KEY,
-  new_cards INTEGER DEFAULT 0,
-  reviews INTEGER DEFAULT 0,
-  correct_reviews INTEGER DEFAULT 0,
-  time_spent_seconds INTEGER DEFAULT 0
+  new_cards INTEGER NOT NULL DEFAULT 0,
+  reviews INTEGER NOT NULL DEFAULT 0,
+  correct_reviews INTEGER NOT NULL DEFAULT 0,
+  time_spent_seconds INTEGER NOT NULL DEFAULT 0
 );
 
 -- Settings key-value store
