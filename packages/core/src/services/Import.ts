@@ -5,6 +5,7 @@ import { Card, CreateCardInput, type DeckId } from "@serious/shared";
 import AdmZip from "adm-zip";
 
 import { ImportError } from "../errors";
+import { DatabaseService, type DatabaseServiceShape } from "../storage/Database";
 import { CardService, type CardServiceShape } from "./Card";
 
 export interface FrequencyImportOptions {
@@ -62,6 +63,7 @@ export class ImportService extends Context.Tag("ImportService")<
     ImportService,
     Effect.gen(function* () {
       const cardService = yield* CardService;
+      const db = yield* DatabaseService;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
 
@@ -114,6 +116,7 @@ export class ImportService extends Context.Tag("ImportService")<
               tmpPath,
               deckId,
               cardService,
+              db,
             ).pipe(
               Effect.ensuring(
                 fs
@@ -174,42 +177,41 @@ export class ImportService extends Context.Tag("ImportService")<
             let imported = 0;
             let skipped = 0;
 
-            for (const { word } of words) {
-              // Find example sentence pair if available
-              let personalNote: string | undefined;
-              let back = word; // Default: same word (user adds translation later)
+            // Batch all inserts in a single transaction
+            yield* db.transaction(() => {
+              for (const { word } of words) {
+                let personalNote: string | undefined;
+                let back = word;
 
-              if (sentencePairs) {
-                const pairs = findSentencePairs(sentencePairs, word);
-                if (pairs.length > 0) {
-                  const pair = pairs[0]!;
-                  back = pair.english;
-                  const examples = pairs
-                    .slice(0, 2)
-                    .map((p) => `${p.target}\n→ ${p.english}`)
-                    .join("\n\n");
-                  personalNote = examples;
+                if (sentencePairs) {
+                  const pairs = findSentencePairs(sentencePairs, word);
+                  if (pairs.length > 0) {
+                    const pair = pairs[0]!;
+                    back = pair.english;
+                    const examples = pairs
+                      .slice(0, 2)
+                      .map((p) => `${p.target}\n→ ${p.english}`)
+                      .join("\n\n");
+                    personalNote = examples;
+                  }
+                }
+
+                const input = new CreateCardInput({
+                  deckId,
+                  type: "basic",
+                  front: word,
+                  back,
+                  personalNote,
+                });
+
+                try {
+                  Effect.runSync(cardService.create(input));
+                  imported++;
+                } catch {
+                  skipped++;
                 }
               }
-
-              const input = new CreateCardInput({
-                deckId,
-                type: "basic",
-                front: word,
-                back,
-                personalNote,
-              });
-
-              yield* cardService.create(input).pipe(
-                Effect.map(() => {
-                  imported++;
-                }),
-                Effect.catchAll(() => {
-                  skipped++;
-                  return Effect.void;
-                }),
-              );
-            }
+            });
 
             return { imported, skipped };
           }),
@@ -281,11 +283,12 @@ function parseAndImport(
   dbPath: string,
   deckId: DeckId,
   cardService: CardServiceShape,
+  db: DatabaseServiceShape,
 ): Effect.Effect<ImportResult, ImportError> {
   return Effect.gen(function* () {
     const ankiDb = new Database(dbPath, { readonly: true });
 
-    const result = yield* Effect.try({
+    const notes = yield* Effect.try({
       try: () => {
         // Parse models from col table to get field names
         const colRow = ankiDb
@@ -321,33 +324,33 @@ function parseAndImport(
     let imported = 0;
     let skipped = 0;
 
-    for (const note of result) {
-      const fields = note.flds.split("\x1f");
-      const front = stripHtml(fields[0] ?? "").trim();
-      const back = stripHtml(fields[1] ?? "").trim();
+    // Batch all inserts in a single transaction
+    yield* db.transaction(() => {
+      for (const note of notes) {
+        const fields = note.flds.split("\x1f");
+        const front = stripHtml(fields[0] ?? "").trim();
+        const back = stripHtml(fields[1] ?? "").trim();
 
-      if (!front || !back) {
-        skipped++;
-        continue;
-      }
-
-      const input = new CreateCardInput({
-        deckId,
-        type: "basic",
-        front,
-        back,
-      });
-
-      yield* cardService.create(input).pipe(
-        Effect.map(() => {
-          imported++;
-        }),
-        Effect.catchAll(() => {
+        if (!front || !back) {
           skipped++;
-          return Effect.void;
-        }),
-      );
-    }
+          continue;
+        }
+
+        const input = new CreateCardInput({
+          deckId,
+          type: "basic",
+          front,
+          back,
+        });
+
+        try {
+          Effect.runSync(cardService.create(input));
+          imported++;
+        } catch {
+          skipped++;
+        }
+      }
+    });
 
     return { imported, skipped };
   });

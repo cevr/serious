@@ -112,6 +112,14 @@ export interface DatabaseServiceShape {
   readonly insertCard: (card: Card) => Effect.Effect<void>
   readonly updateCard: (card: Card) => Effect.Effect<void>
   readonly deleteCard: (id: CardIdType) => Effect.Effect<void>
+  readonly getFilteredCards: (options: {
+    deckId: DeckIdType
+    state?: string
+    search?: string
+    tags?: readonly string[]
+    page: number
+    pageSize: number
+  }) => Effect.Effect<{ cards: readonly Card[]; total: number }>
 
   // Deck operations
   readonly getDeck: (id: DeckIdType) => Effect.Effect<Option.Option<Deck>>
@@ -267,6 +275,43 @@ export class DatabaseService extends Context.Tag("DatabaseService")<
         deleteCard: (id) =>
           Effect.sync(() => {
             db.query("DELETE FROM cards WHERE id = ?").run(id)
+          }),
+
+        getFilteredCards: (options) =>
+          Effect.sync(() => {
+            const conditions = ["deck_id = ?"]
+            const params: (string | number)[] = [options.deckId]
+
+            if (options.state) {
+              conditions.push("state = ?")
+              params.push(options.state)
+            }
+            if (options.search) {
+              conditions.push("(front LIKE ? OR back LIKE ?)")
+              const like = `%${options.search}%`
+              params.push(like, like)
+            }
+            if (options.tags && options.tags.length > 0) {
+              // Check if any of the requested tags appear in the JSON array
+              const tagConditions = options.tags.map(() => "tags LIKE ?")
+              conditions.push(`(${tagConditions.join(" OR ")})`)
+              for (const tag of options.tags) {
+                params.push(`%"${tag}"%`)
+              }
+            }
+
+            const where = conditions.join(" AND ")
+            const countRow = db.query(
+              `SELECT COUNT(*) as total FROM cards WHERE ${where}`
+            ).get(...params) as { total: number }
+            const total = countRow.total
+
+            const offset = (options.page - 1) * options.pageSize
+            const rows = db.query(
+              `SELECT * FROM cards WHERE ${where} ORDER BY created_at LIMIT ? OFFSET ?`
+            ).all(...params, options.pageSize, offset) as CardRow[]
+
+            return { cards: rows.map(rowToCard), total }
           }),
 
         // Deck operations
@@ -458,6 +503,7 @@ export class DatabaseService extends Context.Tag("DatabaseService")<
       insertCard: () => Effect.void,
       updateCard: () => Effect.void,
       deleteCard: () => Effect.void,
+      getFilteredCards: () => Effect.succeed({ cards: [], total: 0 }),
       getDeck: () => Effect.succeed(Option.none()),
       getAllDecks: () => Effect.succeed([]),
       insertDeck: () => Effect.void,

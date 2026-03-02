@@ -1,6 +1,6 @@
 import { HttpApiBuilder } from "@effect/platform"
 import { Effect } from "effect"
-import { CardService, DeckService } from "@serious/core"
+import { CardService, DatabaseService, DeckService } from "@serious/core"
 import { SeriousApi, CardNotFoundError, DeckNotFoundError, PaginatedCards } from "@serious/api"
 import type { CardId, DeckId } from "@serious/shared"
 
@@ -8,7 +8,7 @@ export const CardRoutesLive = HttpApiBuilder.group(SeriousApi, "cards", (handler
   handlers
     .handle("listByDeck", ({ path, urlParams }) =>
       Effect.gen(function* () {
-        const cardService = yield* CardService
+        const db = yield* DatabaseService
         const deckService = yield* DeckService
 
         // Verify deck exists
@@ -22,41 +22,27 @@ export const CardRoutesLive = HttpApiBuilder.group(SeriousApi, "cards", (handler
           )
         )
 
-        const allCards = yield* cardService.getByDeck(path.deckId as DeckId)
-
-        // Apply filtering
-        let filteredCards = allCards
-        if (urlParams.state) {
-          filteredCards = filteredCards.filter((c) => c.state === urlParams.state)
-        }
-        if (urlParams.search) {
-          const search = urlParams.search.toLowerCase()
-          filteredCards = filteredCards.filter(
-            (c) =>
-              c.front.toLowerCase().includes(search) ||
-              c.back.toLowerCase().includes(search)
-          )
-        }
-        if (urlParams.tags) {
-          const tags = urlParams.tags.split(",").map((t) => t.trim())
-          filteredCards = filteredCards.filter((c) =>
-            tags.some((tag) => c.tags.includes(tag))
-          )
-        }
-
-        // Apply pagination
         const page = urlParams.page ?? 1
         const pageSize = urlParams.pageSize ?? 50
-        const total = filteredCards.length
-        const start = (page - 1) * pageSize
-        const paginatedCards = filteredCards.slice(start, start + pageSize)
+        const tags = urlParams.tags
+          ? urlParams.tags.split(",").map((t) => t.trim())
+          : undefined
 
-        return new PaginatedCards({
-          cards: paginatedCards,
-          total,
+        const result = yield* db.getFilteredCards({
+          deckId: path.deckId as DeckId,
+          state: urlParams.state,
+          search: urlParams.search,
+          tags,
           page,
           pageSize,
-          hasMore: start + pageSize < total,
+        })
+
+        return new PaginatedCards({
+          cards: result.cards,
+          total: result.total,
+          page,
+          pageSize,
+          hasMore: page * pageSize < result.total,
         })
       })
     )
