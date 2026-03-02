@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { useCallback, useEffect, useReducer, useRef } from "react";
-import { useFetcher, useLoaderData, useNavigate } from "react-router";
+import { isRouteErrorResponse, Link, useFetcher, useLoaderData, useNavigate } from "react-router";
 
 import { DeckService, ReviewService } from "@serious/core";
 import { CardId, DeckId, SessionStats } from "@serious/shared";
@@ -230,6 +230,23 @@ export default function Review() {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+export function ErrorBoundary() {
+  return (
+    <div className="flex min-h-dvh flex-col items-center justify-center px-4">
+      <h1 className="text-2xl font-bold">Review unavailable</h1>
+      <p className="mt-2 text-muted-foreground">
+        Something went wrong loading the review session.
+      </p>
+      <Link
+        to="/"
+        className="mt-4 text-sm text-muted-foreground hover:text-foreground"
+      >
+        &larr; Back to home
+      </Link>
     </div>
   );
 }

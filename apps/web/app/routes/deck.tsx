@@ -281,3 +281,20 @@ function StatBox({ label, value }: { label: string; value: number }) {
     </CardUI>
   );
 }
+
+export function ErrorBoundary() {
+  return (
+    <div className="mx-auto max-w-4xl px-4 py-8">
+      <h1 className="text-2xl font-bold">Deck not found</h1>
+      <p className="mt-2 text-muted-foreground">
+        This deck may have been deleted or doesn&apos;t exist.
+      </p>
+      <Link
+        to="/"
+        className="mt-4 inline-block text-sm text-muted-foreground hover:text-foreground"
+      >
+        &larr; Back to home
+      </Link>
+    </div>
+  );
+}

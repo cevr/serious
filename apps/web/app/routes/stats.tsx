@@ -155,3 +155,20 @@ function StatCard({
     </Card>
   );
 }
+
+export function ErrorBoundary() {
+  return (
+    <div className="mx-auto max-w-4xl px-4 py-8">
+      <h1 className="text-2xl font-bold">Stats unavailable</h1>
+      <p className="mt-2 text-muted-foreground">
+        Something went wrong loading statistics.
+      </p>
+      <Link
+        to="/"
+        className="mt-4 inline-block text-sm text-muted-foreground hover:text-foreground"
+      >
+        &larr; Back to home
+      </Link>
+    </div>
+  );
+}
