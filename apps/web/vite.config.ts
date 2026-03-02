@@ -11,4 +11,7 @@ export default defineConfig(({ command }) => ({
         ? { "react-dom/server": "react-dom/server.node" }
         : undefined,
   },
+  ssr: {
+    external: ["bun:sqlite"],
+  },
 }));
