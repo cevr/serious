@@ -1,26 +1,14 @@
-import { defineConfig } from "vite"
-import solid from "vite-plugin-solid"
-import { resolve } from "path"
+import { reactRouter } from "@react-router/dev/vite";
+import tailwindcss from "@tailwindcss/vite";
+import { defineConfig } from "vite";
+import tsconfigPaths from "vite-tsconfig-paths";
 
-export default defineConfig({
-  plugins: [solid()],
+export default defineConfig(({ command }) => ({
+  plugins: [tailwindcss(), reactRouter(), tsconfigPaths()],
   resolve: {
-    alias: {
-      "@": resolve(__dirname, "./src"),
-    },
+    alias:
+      command === "build"
+        ? { "react-dom/server": "react-dom/server.node" }
+        : undefined,
   },
-  server: {
-    port: 5173,
-    proxy: {
-      "/api": {
-        target: "http://localhost:3000",
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ""),
-      },
-    },
-  },
-  build: {
-    target: "esnext",
-    outDir: "dist",
-  },
-})
+}));
