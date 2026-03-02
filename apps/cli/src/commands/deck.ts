@@ -1,7 +1,7 @@
 import { Args, Command, Options } from "@effect/cli"
 import { Console, Effect } from "effect"
 import { DeckService } from "@serious/core"
-import { CreateDeckInput } from "@serious/shared"
+import { CreateDeckInput, DeckId } from "@serious/shared"
 
 // srs deck list
 const listCommand = Command.make("list", {}, () =>
@@ -70,7 +70,7 @@ const deleteCommand = Command.make("delete", { id: idArg }, ({ id }) =>
   Effect.gen(function* () {
     const deckService = yield* DeckService
 
-    yield* deckService.delete(id as any).pipe(
+    yield* deckService.delete(DeckId.make(id)).pipe(
       Effect.catchTag("DeckNotFound", () =>
         Effect.gen(function* () {
           yield* Console.error(`Deck not found: ${id}`)

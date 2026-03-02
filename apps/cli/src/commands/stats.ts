@@ -1,6 +1,7 @@
 import { Args, Command } from "@effect/cli"
 import { Console, Effect, Option } from "effect"
 import { DeckService } from "@serious/core"
+import { DeckId } from "@serious/shared"
 
 const deckArg = Args.text({ name: "deck" }).pipe(Args.optional)
 
@@ -10,7 +11,7 @@ export const statsCommand = Command.make("stats", { deck: deckArg }, ({ deck }) 
 
     if (Option.isSome(deck)) {
       // Show stats for specific deck
-      const deckId = deck.value as any
+      const deckId = DeckId.make(deck.value)
       const deckInfo = yield* deckService.get(deckId).pipe(
         Effect.catchTag("DeckNotFound", () =>
           Effect.gen(function* () {

@@ -1,6 +1,7 @@
 import { Args, Command, Options } from "@effect/cli"
 import { Console, Effect, Option } from "effect"
 import { ReviewService, DeckService } from "@serious/core"
+import { DeckId } from "@serious/shared"
 import type { Rating } from "@serious/shared"
 
 const deckArg = Args.text({ name: "deck" }).pipe(Args.optional)
@@ -33,7 +34,7 @@ export const reviewCommand = Command.make(
       }
 
       // Get due cards
-      const cards = yield* reviewService.getDueCards(deckId as any, limit)
+      const cards = yield* reviewService.getDueCards(DeckId.make(deckId), limit)
 
       if (cards.length === 0) {
         yield* Console.log("No cards due for review! Great job!")
@@ -58,16 +59,11 @@ export const reviewCommand = Command.make(
         yield* Console.log("")
 
         // Show front
-        const front = JSON.parse(card.front)
-        yield* Console.log(`Q: ${front.text ?? front}`)
+        yield* Console.log(`Q: ${card.front}`)
         yield* Console.log("")
-        yield* Console.log("(Press Enter to reveal answer)")
 
-        // Wait for enter (in a real CLI we'd use readline)
-        // For now, just show the answer
-        const back = JSON.parse(card.back)
-        yield* Console.log("")
-        yield* Console.log(`A: ${back.text ?? back}`)
+        // TODO: prompt for Enter key with readline
+        yield* Console.log(`A: ${card.back}`)
         yield* Console.log("")
 
         // In a real implementation, we'd prompt for rating
