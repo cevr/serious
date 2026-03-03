@@ -1,5 +1,5 @@
-import { Effect, Layer } from "effect"
-import { describe, expect, it } from "@effect/vitest"
+import { Effect } from "effect"
+import { describe, expect, it } from "effect-bun-test/v3"
 import { FsrsService } from "../src/services/Fsrs"
 import { Card, CardId, DeckId } from "@serious/shared"
 
