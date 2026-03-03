@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { useEffect, useRef } from "react";
-import { Link, redirect, useFetcher, useLoaderData } from "react-router";
+import { isRouteErrorResponse, Link, redirect, useFetcher, useLoaderData, useRouteError } from "react-router";
 import type { Route } from "./+types/deck";
 
 import { CardService, DeckService, ImportService } from "@serious/core";
@@ -26,6 +26,7 @@ import {
   CardHeader,
   CardTitle,
 } from "~/components/ui/card";
+import { Input } from "~/components/ui/input";
 import { StatCard } from "~/components/stat-card";
 
 export const loader = routeHandler((args) =>
@@ -192,6 +193,7 @@ function ImportForm({ deckId }: { deckId: string }) {
           type="file"
           name="file"
           accept=".apkg"
+          aria-label="Choose .apkg file to import"
           className="text-sm file:mr-2 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium"
         />
         <Button type="submit" size="sm" variant="secondary" disabled={isSubmitting}>
@@ -219,19 +221,19 @@ function AddCardForm({ deckId }: { deckId: string }) {
       <fetcher.Form ref={formRef} method="post" className="mt-2 flex gap-2">
         <input type="hidden" name="intent" value="create-card" />
         <input type="hidden" name="deckId" value={deckId} />
-        <input
+        <Input
           name="front"
           placeholder="Front"
           required
           aria-label="Card front"
-          className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+          className="flex-1"
         />
-        <input
+        <Input
           name="back"
           placeholder="Back"
           required
           aria-label="Card back"
-          className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+          className="flex-1"
         />
         <Button type="submit" size="sm">
           Add
@@ -258,19 +260,36 @@ function CardRow({ card }: { card: Card }) {
           >
             {card.state}
           </Badge>
-          <fetcher.Form method="post">
-            <input type="hidden" name="intent" value="delete-card" />
-            <input type="hidden" name="cardId" value={card.id} />
-            <Button
-              type="submit"
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-xs text-muted-foreground"
-              aria-label="Delete card"
+          <AlertDialog>
+            <AlertDialogTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs text-muted-foreground"
+                  aria-label="Delete card"
+                />
+              }
             >
               ×
-            </Button>
-          </fetcher.Form>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete card?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete this card.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <fetcher.Form method="post">
+                  <input type="hidden" name="intent" value="delete-card" />
+                  <input type="hidden" name="cardId" value={card.id} />
+                  <AlertDialogAction type="submit">Delete</AlertDialogAction>
+                </fetcher.Form>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </CardHeader>
     </CardUI>
@@ -279,11 +298,18 @@ function CardRow({ card }: { card: Card }) {
 
 
 export function ErrorBoundary() {
+  const error = useRouteError();
+  const is404 = isRouteErrorResponse(error) && error.status === 404;
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="text-2xl font-bold">Deck not found</h1>
+      <h1 className="text-2xl font-bold">
+        {is404 ? "Deck not found" : "Something went wrong"}
+      </h1>
       <p className="mt-2 text-muted-foreground">
-        This deck may have been deleted or doesn&apos;t exist.
+        {is404
+          ? "This deck may have been deleted or doesn\u2019t exist."
+          : "An unexpected error occurred."}
       </p>
       <Link
         to="/"

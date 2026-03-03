@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { useCallback, useEffect, useReducer, useRef } from "react";
-import { Link, useFetcher, useLoaderData } from "react-router";
+import { isRouteErrorResponse, Link, useFetcher, useLoaderData, useRouteError } from "react-router";
 
 import { DeckService, ReviewService } from "@serious/core";
 import { CardId, DeckId, SessionStats } from "@serious/shared";
@@ -247,11 +247,18 @@ export default function Review() {
 }
 
 export function ErrorBoundary() {
+  const error = useRouteError();
+  const is404 = isRouteErrorResponse(error) && error.status === 404;
+
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center px-4">
-      <h1 className="text-2xl font-bold">Review unavailable</h1>
+      <h1 className="text-2xl font-bold">
+        {is404 ? "Deck not found" : "Review unavailable"}
+      </h1>
       <p className="mt-2 text-muted-foreground">
-        Something went wrong loading the review session.
+        {is404
+          ? "This deck may have been deleted."
+          : "Something went wrong loading the review session."}
       </p>
       <Link
         to="/"

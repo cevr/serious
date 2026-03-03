@@ -1,5 +1,5 @@
 import { Clock, Effect } from "effect";
-import { Link, useLoaderData } from "react-router";
+import { isRouteErrorResponse, Link, useLoaderData, useRouteError } from "react-router";
 
 import { DeckService, ReviewService } from "@serious/core";
 import type { DailyProgress, DeckStats } from "@serious/shared";
@@ -143,11 +143,18 @@ export default function Stats() {
 }
 
 export function ErrorBoundary() {
+  const error = useRouteError();
+  const is404 = isRouteErrorResponse(error) && error.status === 404;
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="text-2xl font-bold">Stats unavailable</h1>
+      <h1 className="text-2xl font-bold">
+        {is404 ? "Not found" : "Stats unavailable"}
+      </h1>
       <p className="mt-2 text-muted-foreground">
-        Something went wrong loading statistics.
+        {is404
+          ? "This page doesn\u2019t exist."
+          : "Something went wrong loading statistics."}
       </p>
       <Link
         to="/"

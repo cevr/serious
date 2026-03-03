@@ -1,89 +1,89 @@
 import { useFetcher } from "react-router";
 import { useState } from "react";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "~/components/ui/alert-dialog";
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "~/components/ui/dialog";
 import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
 
 export function CreateDeckDialog() {
   const fetcher = useFetcher();
   const [open, setOpen] = useState(false);
 
   return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogTrigger render={<Button />}>New Deck</AlertDialogTrigger>
-      <AlertDialogContent>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<Button />}>New Deck</DialogTrigger>
+      <DialogContent>
         <fetcher.Form
           method="post"
           action="/?index"
           onSubmit={() => setOpen(false)}
         >
           <input type="hidden" name="intent" value="create-deck" />
-          <AlertDialogHeader>
-            <AlertDialogTitle>Create Deck</AlertDialogTitle>
-            <AlertDialogDescription>
+          <DialogHeader>
+            <DialogTitle>Create Deck</DialogTitle>
+            <DialogDescription>
               Set up a new vocabulary deck for language learning.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
+            </DialogDescription>
+          </DialogHeader>
           <div className="mt-4 space-y-3">
             <div>
               <label htmlFor="deck-name" className="text-sm font-medium">Name</label>
-              <input
+              <Input
                 id="deck-name"
                 name="name"
                 required
                 placeholder="French Vocabulary"
-                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="mt-1"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label htmlFor="deck-target-lang" className="text-sm font-medium">Target Language</label>
-                <input
+                <Input
                   id="deck-target-lang"
                   name="targetLanguage"
                   required
                   placeholder="fr"
                   maxLength={5}
-                  className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="mt-1"
                 />
               </div>
               <div>
                 <label htmlFor="deck-native-lang" className="text-sm font-medium">Native Language</label>
-                <input
+                <Input
                   id="deck-native-lang"
                   name="nativeLanguage"
                   required
                   placeholder="en"
                   maxLength={5}
-                  className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="mt-1"
                 />
               </div>
             </div>
             <div>
               <label htmlFor="deck-description" className="text-sm font-medium">Description</label>
-              <input
+              <Input
                 id="deck-description"
                 name="description"
                 placeholder="Optional description"
-                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="mt-1"
               />
             </div>
           </div>
-          <AlertDialogFooter className="mt-6">
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction type="submit">Create</AlertDialogAction>
-          </AlertDialogFooter>
+          <DialogFooter className="mt-6">
+            <DialogClose>Cancel</DialogClose>
+            <Button type="submit">Create</Button>
+          </DialogFooter>
         </fetcher.Form>
-      </AlertDialogContent>
-    </AlertDialog>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -36,6 +36,8 @@ export function RetentionChart({ data }: { data: DailyProgress[] }) {
         viewBox={`0 0 ${width} ${CHART_HEIGHT}`}
         className="w-full"
         style={{ minWidth: `${width}px`, maxHeight: "200px" }}
+        role="img"
+        aria-label="Daily review activity over the last 30 days"
       >
         {/* Grid lines */}
         {[0, 0.25, 0.5, 0.75, 1].map((frac) => {
