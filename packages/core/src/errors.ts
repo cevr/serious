@@ -13,10 +13,6 @@ export class ImportError extends S.TaggedError<ImportError>()("ImportError", {
   path: S.optional(S.String),
 }) {}
 
-export class AudioError extends S.TaggedError<AudioError>()("AudioError", {
-  message: S.String,
-}) {}
-
 export class DatabaseError extends S.TaggedError<DatabaseError>()("DatabaseError", {
   message: S.String,
   cause: S.optional(S.Unknown),

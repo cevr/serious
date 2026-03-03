@@ -28,64 +28,68 @@ import {
   CardTitle,
 } from "~/components/ui/card";
 
-export const loader = routeHandler(function* (_resume, args) {
-  const deckId = DeckId.make(args.params.id!);
-  const deckService = yield* DeckService;
-  const cardService = yield* CardService;
-
-  const deck = yield* deckService.get(deckId);
-  const cards = yield* cardService.getByDeck(deckId);
-  const stats = yield* deckService.getStats(deckId);
-
-  return {
-    deck: deck as Deck,
-    cards: cards as Card[],
-    stats: stats as DeckStats,
-  };
-});
-
-export const action = routeAction(function* (_resume, args) {
-  const formData = yield* Effect.promise(() => args.request.formData());
-  const intent = formData.get("intent") as string;
-
-  if (intent === "delete-deck") {
-    const deckId = DeckId.make(formData.get("deckId") as string);
+export const loader = routeHandler((args) =>
+  Effect.gen(function* () {
+    const deckId = DeckId.make(args.params.id!);
     const deckService = yield* DeckService;
-    yield* deckService.delete(deckId);
-    throw redirect("/");
-  }
-
-  if (intent === "create-card") {
     const cardService = yield* CardService;
-    const input = new CreateCardInput({
-      deckId: DeckId.make(formData.get("deckId") as string),
-      type: "basic",
-      front: formData.get("front") as string,
-      back: formData.get("back") as string,
-    });
-    yield* cardService.create(input);
-    return { ok: true };
-  }
 
-  if (intent === "delete-card") {
-    const cardService = yield* CardService;
-    const cardIdRaw = formData.get("cardId");
-    if (!cardIdRaw) return { ok: false };
-    yield* cardService.delete(CardId.make(cardIdRaw as string));
-    return { ok: true };
-  }
+    const deck = yield* deckService.get(deckId);
+    const cards = yield* cardService.getByDeck(deckId);
+    const stats = yield* deckService.getStats(deckId);
 
-  if (intent === "import-apkg") {
-    const importService = yield* ImportService;
-    const deckId = DeckId.make(formData.get("deckId") as string);
-    const file = formData.get("file") as File;
-    const buffer = new Uint8Array(yield* Effect.promise(() => file.arrayBuffer()));
-    const result = yield* importService.importApkg(buffer, deckId);
-    return result;
-  }
+    return {
+      deck: deck as Deck,
+      cards: cards as Card[],
+      stats: stats as DeckStats,
+    };
+  }),
+);
 
-  return { ok: false };
-});
+export const action = routeAction((args) =>
+  Effect.gen(function* () {
+    const formData = yield* Effect.promise(() => args.request.formData());
+    const intent = formData.get("intent") as string;
+
+    if (intent === "delete-deck") {
+      const deckId = DeckId.make(formData.get("deckId") as string);
+      const deckService = yield* DeckService;
+      yield* deckService.delete(deckId);
+      throw redirect("/");
+    }
+
+    if (intent === "create-card") {
+      const cardService = yield* CardService;
+      const input = new CreateCardInput({
+        deckId: DeckId.make(formData.get("deckId") as string),
+        type: "basic",
+        front: formData.get("front") as string,
+        back: formData.get("back") as string,
+      });
+      yield* cardService.create(input);
+      return { ok: true };
+    }
+
+    if (intent === "delete-card") {
+      const cardService = yield* CardService;
+      const cardIdRaw = formData.get("cardId");
+      if (!cardIdRaw) return { ok: false };
+      yield* cardService.delete(CardId.make(cardIdRaw as string));
+      return { ok: true };
+    }
+
+    if (intent === "import-apkg") {
+      const importService = yield* ImportService;
+      const deckId = DeckId.make(formData.get("deckId") as string);
+      const file = formData.get("file") as File;
+      const buffer = new Uint8Array(yield* Effect.promise(() => file.arrayBuffer()));
+      const result = yield* importService.importApkg(buffer, deckId);
+      return result;
+    }
+
+    return { ok: false };
+  }),
+);
 
 export default function DeckDetail() {
   const { deck, cards, stats } = useLoaderData<typeof loader>();

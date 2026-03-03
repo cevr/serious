@@ -36,54 +36,58 @@ function reviewReducer(state: ReviewState, action: ReviewAction): ReviewState {
   }
 }
 
-export const loader = routeHandler(function* (_resume, args) {
-  const deckId = DeckId.make(args.params.id!);
-  const deckService = yield* DeckService;
-  const reviewService = yield* ReviewService;
-
-  const deck = yield* deckService.get(deckId);
-  const dueCards = yield* reviewService.getDueCards(deckId);
-
-  return {
-    deck: deck as Deck,
-    cards: dueCards as Card[],
-  };
-});
-
-export const action = routeAction(function* (_resume, args) {
-  const formData = yield* Effect.promise(() => args.request.formData());
-  const intent = formData.get("intent") as string;
-
-  if (intent === "review") {
+export const loader = routeHandler((args) =>
+  Effect.gen(function* () {
+    const deckId = DeckId.make(args.params.id!);
+    const deckService = yield* DeckService;
     const reviewService = yield* ReviewService;
-    const cardIdRaw = formData.get("cardId");
-    const ratingRaw = Number(formData.get("rating"));
-    if (!cardIdRaw || ![1, 2, 3, 4].includes(ratingRaw)) {
-      return { ok: false };
+
+    const deck = yield* deckService.get(deckId);
+    const dueCards = yield* reviewService.getDueCards(deckId);
+
+    return {
+      deck: deck as Deck,
+      cards: dueCards as Card[],
+    };
+  }),
+);
+
+export const action = routeAction((args) =>
+  Effect.gen(function* () {
+    const formData = yield* Effect.promise(() => args.request.formData());
+    const intent = formData.get("intent") as string;
+
+    if (intent === "review") {
+      const reviewService = yield* ReviewService;
+      const cardIdRaw = formData.get("cardId");
+      const ratingRaw = Number(formData.get("rating"));
+      if (!cardIdRaw || ![1, 2, 3, 4].includes(ratingRaw)) {
+        return { ok: false };
+      }
+      const result = yield* reviewService.submitReview(
+        CardId.make(cardIdRaw as string),
+        ratingRaw as Rating,
+      );
+      return { scheduledDays: result.scheduledDays };
     }
-    const result = yield* reviewService.submitReview(
-      CardId.make(cardIdRaw as string),
-      ratingRaw as Rating,
-    );
-    return { scheduledDays: result.scheduledDays };
-  }
 
-  if (intent === "record-session") {
-    const reviewService = yield* ReviewService;
-    const stats = new SessionStats({
-      reviewed: Number(formData.get("reviewed")),
-      correct: Number(formData.get("correct")),
-      wrong: Number(formData.get("wrong")),
-      timeSpentSeconds: Number(formData.get("timeSpentSeconds")),
-      startedAt: new Date(formData.get("startedAt") as string),
-      endedAt: new Date(),
-    });
-    yield* reviewService.recordSession(stats);
-    return { ok: true };
-  }
+    if (intent === "record-session") {
+      const reviewService = yield* ReviewService;
+      const stats = new SessionStats({
+        reviewed: Number(formData.get("reviewed")),
+        correct: Number(formData.get("correct")),
+        wrong: Number(formData.get("wrong")),
+        timeSpentSeconds: Number(formData.get("timeSpentSeconds")),
+        startedAt: new Date(formData.get("startedAt") as string),
+        endedAt: new Date(),
+      });
+      yield* reviewService.recordSession(stats);
+      return { ok: true };
+    }
 
-  return { ok: false };
-});
+    return { ok: false };
+  }),
+);
 
 export default function Review() {
   const { deck, cards } = useLoaderData<typeof loader>();

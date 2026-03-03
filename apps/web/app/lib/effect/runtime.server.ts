@@ -5,7 +5,6 @@ import { data } from "react-router";
 import {
   CardNotFound,
   CoreLive,
-  DatabaseError,
   DeckNotFound,
   ImportError,
 } from "@serious/core";
@@ -32,9 +31,6 @@ export function handleLoaderError(cause: Cause.Cause<unknown>): never {
     }
     if (error instanceof ImportError) {
       throw data({ message: error.message }, { status: 400 });
-    }
-    if (error instanceof DatabaseError) {
-      throw data({ message: "Database error" }, { status: 500 });
     }
   }
 

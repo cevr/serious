@@ -12,16 +12,25 @@ export type ReviewLogId = S.Schema.Type<typeof ReviewLogIdSchema>
 
 // Helper to create IDs
 export const CardId = {
-  make: (s: string): CardId => s as CardId,
+  make: (s: string): CardId => {
+    if (!s) throw new Error("CardId: empty string")
+    return s as CardId
+  },
   generate: (): CardId => crypto.randomUUID() as CardId,
 }
 
 export const DeckId = {
-  make: (s: string): DeckId => s as DeckId,
+  make: (s: string): DeckId => {
+    if (!s) throw new Error("DeckId: empty string")
+    return s as DeckId
+  },
   generate: (): DeckId => crypto.randomUUID() as DeckId,
 }
 
 export const ReviewLogId = {
-  make: (s: string): ReviewLogId => s as ReviewLogId,
+  make: (s: string): ReviewLogId => {
+    if (!s) throw new Error("ReviewLogId: empty string")
+    return s as ReviewLogId
+  },
   generate: (): ReviewLogId => crypto.randomUUID() as ReviewLogId,
 }

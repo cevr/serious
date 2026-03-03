@@ -10,45 +10,49 @@ import { routeAction, routeHandler } from "~/lib/effect/route.server";
 import { DeckCard } from "~/components/deck-card";
 import { CreateDeckDialog } from "~/components/create-deck-dialog";
 
-export const loader = routeHandler(function* () {
-  const deckService = yield* DeckService;
-  const decks = yield* deckService.getAll();
-
-  const stats = yield* Effect.all(
-    decks.map((deck) => deckService.getStats(deck.id)),
-    { concurrency: "unbounded" },
-  );
-
-  return {
-    decks: decks as Deck[],
-    stats: stats as DeckStats[],
-  };
-});
-
-export const action = routeAction(function* (_resume, args) {
-  const formData = yield* Effect.promise(() => args.request.formData());
-  const intent = formData.get("intent") as string;
-
-  if (intent === "create-deck") {
-    const name = formData.get("name");
-    const targetLanguage = formData.get("targetLanguage");
-    const nativeLanguage = formData.get("nativeLanguage");
-    if (!name || !targetLanguage || !nativeLanguage) {
-      return { ok: false };
-    }
+export const loader = routeHandler(() =>
+  Effect.gen(function* () {
     const deckService = yield* DeckService;
-    const input = new CreateDeckInput({
-      name: name as string,
-      targetLanguage: targetLanguage as string,
-      nativeLanguage: nativeLanguage as string,
-      description: (formData.get("description") as string) || undefined,
-    });
-    yield* deckService.create(input);
-    return { ok: true };
-  }
+    const decks = yield* deckService.getAll();
 
-  return { ok: false };
-});
+    const stats = yield* Effect.all(
+      decks.map((deck) => deckService.getStats(deck.id)),
+      { concurrency: "unbounded" },
+    );
+
+    return {
+      decks: decks as Deck[],
+      stats: stats as DeckStats[],
+    };
+  }),
+);
+
+export const action = routeAction((args) =>
+  Effect.gen(function* () {
+    const formData = yield* Effect.promise(() => args.request.formData());
+    const intent = formData.get("intent") as string;
+
+    if (intent === "create-deck") {
+      const name = formData.get("name");
+      const targetLanguage = formData.get("targetLanguage");
+      const nativeLanguage = formData.get("nativeLanguage");
+      if (!name || !targetLanguage || !nativeLanguage) {
+        return { ok: false };
+      }
+      const deckService = yield* DeckService;
+      const input = new CreateDeckInput({
+        name: name as string,
+        targetLanguage: targetLanguage as string,
+        nativeLanguage: nativeLanguage as string,
+        description: (formData.get("description") as string) || undefined,
+      });
+      yield* deckService.create(input);
+      return { ok: true };
+    }
+
+    return { ok: false };
+  }),
+);
 
 export default function Home() {
   const { decks, stats } = useLoaderData<typeof loader>();

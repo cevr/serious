@@ -4,18 +4,14 @@ import type { LoaderFunctionArgs } from "react-router";
 import { AppRuntime, handleLoaderError } from "./runtime.server";
 
 /**
- * Create a route loader from an Effect generator.
+ * Create a route loader/action from an Effect.
  * Services are provided by AppRuntime (CoreLive + platform).
  */
-export function routeHandler<A>(
-  body: (
-    resume: Effect.Adapter,
-    args: LoaderFunctionArgs,
-  ) => Generator<any, A, any>,
+function routeEffect<A>(
+  body: (args: LoaderFunctionArgs) => Effect.Effect<A, any, any>,
 ) {
   return async (args: LoaderFunctionArgs): Promise<A> => {
-    const effect = Effect.gen((resume) => body(resume, args));
-    const exit = await AppRuntime.runPromiseExit(effect as Effect.Effect<A>);
+    const exit = await AppRuntime.runPromiseExit(body(args));
 
     if (exit._tag === "Success") {
       return exit.value;
@@ -25,24 +21,5 @@ export function routeHandler<A>(
   };
 }
 
-/**
- * Create a route action from an Effect generator.
- * Services are provided by AppRuntime (CoreLive + platform).
- */
-export function routeAction<A>(
-  body: (
-    resume: Effect.Adapter,
-    args: LoaderFunctionArgs,
-  ) => Generator<any, A, any>,
-) {
-  return async (args: LoaderFunctionArgs): Promise<A> => {
-    const effect = Effect.gen((resume) => body(resume, args));
-    const exit = await AppRuntime.runPromiseExit(effect as Effect.Effect<A>);
-
-    if (exit._tag === "Success") {
-      return exit.value;
-    }
-
-    handleLoaderError(exit.cause);
-  };
-}
+export const routeHandler = routeEffect;
+export { routeHandler as routeAction };

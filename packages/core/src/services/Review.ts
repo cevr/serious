@@ -70,7 +70,7 @@ export class ReviewService extends Context.Tag("ReviewService")<
 
             // Get deck settings for daily limits
             const deck = yield* deckService.get(deckId).pipe(
-              Effect.catchAll(() => Effect.succeed(null))
+              Effect.catchTag("DeckNotFound", () => Effect.succeed(null))
             )
 
             // Over-fetch: newCardsPerDay + reviewsPerDay + headroom for learning cards

@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Clock, Effect } from "effect";
 import { Link, useLoaderData } from "react-router";
 
 import { DeckService, ReviewService } from "@serious/core";
@@ -14,49 +14,51 @@ import {
   CardTitle,
 } from "~/components/ui/card";
 
-export const loader = routeHandler(function* () {
-  const deckService = yield* DeckService;
-  const reviewService = yield* ReviewService;
+export const loader = routeHandler(() =>
+  Effect.gen(function* () {
+    const deckService = yield* DeckService;
+    const reviewService = yield* ReviewService;
 
-  const decks = yield* deckService.getAll();
+    const decks = yield* deckService.getAll();
 
-  // Get stats for all decks
-  const allStats = yield* Effect.all(
-    decks.map((d) => deckService.getStats(d.id)),
-    { concurrency: "unbounded" },
-  );
+    // Get stats for all decks
+    const allStats = yield* Effect.all(
+      decks.map((d) => deckService.getStats(d.id)),
+      { concurrency: "unbounded" },
+    );
 
-  // Get daily progress for the last 30 days
-  const today = new Date();
-  const thirtyDaysAgo = new Date(today);
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    // Get daily progress for the last 30 days
+    const today = new Date(yield* Clock.currentTimeMillis);
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const from = thirtyDaysAgo.toISOString().split("T")[0]!;
-  const to = today.toISOString().split("T")[0]!;
+    const from = thirtyDaysAgo.toISOString().split("T")[0]!;
+    const to = today.toISOString().split("T")[0]!;
 
-  const dailyProgress = yield* reviewService.getDailyProgressRange(from, to);
+    const dailyProgress = yield* reviewService.getDailyProgressRange(from, to);
 
-  // Aggregate stats
-  const totalCards = allStats.reduce((sum, s) => sum + s.totalCards, 0);
-  const totalDue = allStats.reduce((sum, s) => sum + s.dueToday, 0);
-  const avgRetention =
-    allStats.length > 0
-      ? allStats.reduce((sum, s) => sum + s.retentionRate, 0) / allStats.length
-      : 0;
-  const maxStreak = allStats.reduce(
-    (max, s) => Math.max(max, s.streak),
-    0,
-  );
+    // Aggregate stats
+    const totalCards = allStats.reduce((sum, s) => sum + s.totalCards, 0);
+    const totalDue = allStats.reduce((sum, s) => sum + s.dueToday, 0);
+    const avgRetention =
+      allStats.length > 0
+        ? allStats.reduce((sum, s) => sum + s.retentionRate, 0) / allStats.length
+        : 0;
+    const maxStreak = allStats.reduce(
+      (max, s) => Math.max(max, s.streak),
+      0,
+    );
 
-  return {
-    totalCards,
-    totalDue,
-    avgRetention,
-    maxStreak,
-    dailyProgress: dailyProgress as DailyProgress[],
-    deckStats: allStats as DeckStats[],
-  };
-});
+    return {
+      totalCards,
+      totalDue,
+      avgRetention,
+      maxStreak,
+      dailyProgress: dailyProgress as DailyProgress[],
+      deckStats: allStats as DeckStats[],
+    };
+  }),
+);
 
 export default function Stats() {
   const {

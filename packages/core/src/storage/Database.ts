@@ -2,7 +2,7 @@ import { Reactivity } from "@effect/experimental"
 import { SqliteClient } from "@effect/sql-sqlite-bun"
 import * as SqlClient from "@effect/sql/SqlClient"
 import { FileSystem, Path } from "@effect/platform"
-import { Config, Context, Effect, Layer, Option } from "effect"
+import { Clock, Config, Context, Effect, Layer, Option } from "effect"
 import {
   Card,
   CardId,
@@ -18,6 +18,11 @@ import type {
   DeckId as DeckIdType,
 } from "@serious/shared"
 import { DatabaseError } from "../errors"
+
+/** Escape special LIKE characters so user input is treated literally */
+function escapeLike(s: string): string {
+  return s.replace(/[\\%_]/g, (c) => `\\${c}`)
+}
 
 // Embedded schema SQL (avoids file lookup issues when bundled)
 const SCHEMA_SQL = `
@@ -272,12 +277,12 @@ export class DatabaseService extends Context.Tag("DatabaseService")<
               conditions.push(sql`state = ${options.state}`)
             }
             if (options.search) {
-              const like = `%${options.search}%`
-              conditions.push(sql`(front LIKE ${like} OR back LIKE ${like})`)
+              const like = `%${escapeLike(options.search)}%`
+              conditions.push(sql`(front LIKE ${like} ESCAPE '\\' OR back LIKE ${like} ESCAPE '\\')`)
             }
             if (options.tags && options.tags.length > 0) {
               for (const tag of options.tags) {
-                conditions.push(sql`tags LIKE ${`%"${tag}"%`}`)
+                conditions.push(sql`tags LIKE ${`%"${escapeLike(tag)}"%`} ESCAPE '\\'`)
               }
             }
 
@@ -328,7 +333,7 @@ export class DatabaseService extends Context.Tag("DatabaseService")<
 
         getDeckStats: (id) =>
           orDie(Effect.gen(function* () {
-            const now = new Date().toISOString()
+            const now = new Date(yield* Clock.currentTimeMillis).toISOString()
 
             // Single aggregate query instead of 5 separate COUNT queries
             const statsRows = yield* sql<{
@@ -593,7 +598,7 @@ function calculateStreak(sql: SqlClient.SqlClient) {
     if (rows.length === 0) return 0
 
     // Use UTC-based date arithmetic to avoid timezone issues
-    const today = new Date()
+    const today = new Date(yield* Clock.currentTimeMillis)
     const todayStr = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, "0")}-${String(today.getUTCDate()).padStart(2, "0")}`
 
     let streak = 0
