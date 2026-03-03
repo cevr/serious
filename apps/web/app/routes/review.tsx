@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { useCallback, useEffect, useReducer, useRef } from "react";
-import { isRouteErrorResponse, Link, useFetcher, useLoaderData, useNavigate } from "react-router";
+import { Link, useFetcher, useLoaderData } from "react-router";
 
 import { DeckService, ReviewService } from "@serious/core";
 import { CardId, DeckId, SessionStats } from "@serious/shared";
@@ -14,12 +14,12 @@ import { SessionSummary } from "~/components/session-summary";
 import { speakText } from "~/lib/audio";
 
 type ReviewState =
-  | { status: "reviewing"; index: number; flipped: boolean; correct: number; wrong: number }
-  | { status: "done"; correct: number; wrong: number };
+  | { status: "reviewing"; index: number; flipped: boolean; correct: number; wrong: number; newCards: number }
+  | { status: "done"; correct: number; wrong: number; newCards: number; endTime: number };
 
 type ReviewAction =
   | { type: "flip" }
-  | { type: "rate"; rating: Rating };
+  | { type: "rate"; rating: Rating; totalCards: number; cardState: string };
 
 function reviewReducer(state: ReviewState, action: ReviewAction): ReviewState {
   if (state.status === "done") return state;
@@ -31,7 +31,12 @@ function reviewReducer(state: ReviewState, action: ReviewAction): ReviewState {
       const isCorrect = action.rating >= 2;
       const correct = state.correct + (isCorrect ? 1 : 0);
       const wrong = state.wrong + (isCorrect ? 0 : 1);
-      return { ...state, correct, wrong, index: state.index + 1, flipped: false };
+      const newCards = state.newCards + (action.cardState === "new" ? 1 : 0);
+      const nextIndex = state.index + 1;
+      if (nextIndex >= action.totalCards) {
+        return { status: "done", correct, wrong, newCards, endTime: Date.now() };
+      }
+      return { ...state, correct, wrong, newCards, index: nextIndex, flipped: false };
     }
   }
 }
@@ -77,6 +82,7 @@ export const action = routeAction((args) =>
         reviewed: Number(formData.get("reviewed")),
         correct: Number(formData.get("correct")),
         wrong: Number(formData.get("wrong")),
+        newCards: Number(formData.get("newCards") ?? 0),
         timeSpentSeconds: Number(formData.get("timeSpentSeconds")),
         startedAt: new Date(formData.get("startedAt") as string),
         endedAt: new Date(),
@@ -93,7 +99,6 @@ export default function Review() {
   const { deck, cards } = useLoaderData<typeof loader>();
   const reviewFetcher = useFetcher();
   const sessionFetcher = useFetcher();
-  const navigate = useNavigate();
 
   const [state, dispatch] = useReducer(reviewReducer, {
     status: "reviewing",
@@ -101,11 +106,12 @@ export default function Review() {
     flipped: false,
     correct: 0,
     wrong: 0,
+    newCards: 0,
   });
   const startedAt = useRef(new Date().toISOString());
   const startTime = useRef(Date.now());
 
-  const isDone = state.status === "done" || (state.status === "reviewing" && state.index >= cards.length);
+  const isDone = state.status === "done";
   const currentCard = state.status === "reviewing" ? cards[state.index] : undefined;
   const isFlipped = state.status === "reviewing" && state.flipped;
 
@@ -127,6 +133,7 @@ export default function Review() {
     // Check if this is the last card — record session via separate fetcher
     if (state.status === "reviewing" && state.index + 1 >= cards.length) {
       const isCorrect = rating >= 2;
+      const newCards = state.newCards + (currentCard.state === "new" ? 1 : 0);
       const elapsed = Math.round((Date.now() - startTime.current) / 1000);
       sessionFetcher.submit(
         {
@@ -134,6 +141,7 @@ export default function Review() {
           reviewed: String(state.index + 1),
           correct: String(state.correct + (isCorrect ? 1 : 0)),
           wrong: String(state.wrong + (isCorrect ? 0 : 1)),
+          newCards: String(newCards),
           timeSpentSeconds: String(elapsed),
           startedAt: startedAt.current,
         },
@@ -141,7 +149,7 @@ export default function Review() {
       );
     }
 
-    dispatch({ type: "rate", rating });
+    dispatch({ type: "rate", rating, totalCards: cards.length, cardState: currentCard.state });
   };
 
   const handleRate = useCallback((rating: Rating) => {
@@ -179,12 +187,12 @@ export default function Review() {
         <p className="mt-2 text-muted-foreground">
           All caught up! Come back later.
         </p>
-        <button
-          onClick={() => navigate(`/decks/${deck.id}`)}
+        <Link
+          to={`/decks/${deck.id}`}
           className="mt-4 text-sm text-muted-foreground hover:text-foreground"
         >
           &larr; Back to deck
-        </button>
+        </Link>
       </div>
     );
   }
@@ -195,7 +203,7 @@ export default function Review() {
         reviewed={state.correct + state.wrong}
         correct={state.correct}
         wrong={state.wrong}
-        timeSpentSeconds={Math.round((Date.now() - startTime.current) / 1000)}
+        timeSpentSeconds={Math.round((state.endTime - startTime.current) / 1000)}
         deckId={deck.id}
         deckName={deck.name}
       />

@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Link, redirect, useFetcher, useLoaderData } from "react-router";
 import type { Route } from "./+types/deck";
 
@@ -23,10 +23,10 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
   Card as CardUI,
-  CardContent,
   CardHeader,
   CardTitle,
 } from "~/components/ui/card";
+import { StatCard } from "~/components/stat-card";
 
 export const loader = routeHandler((args) =>
   Effect.gen(function* () {
@@ -151,10 +151,10 @@ export default function DeckDetail() {
 
       {/* Stats summary */}
       <div className="mt-6 grid grid-cols-4 gap-4">
-        <StatBox label="Total" value={stats.totalCards} />
-        <StatBox label="New" value={stats.newCount} />
-        <StatBox label="Learning" value={stats.learningCount} />
-        <StatBox label="Due today" value={stats.dueToday} />
+        <StatCard label="Total" value={stats.totalCards} />
+        <StatCard label="New" value={stats.newCount} />
+        <StatCard label="Learning" value={stats.learningCount} />
+        <StatCard label="Due today" value={stats.dueToday} />
       </div>
 
       {/* Import */}
@@ -207,9 +207,11 @@ function AddCardForm({ deckId }: { deckId: string }) {
   const formRef = useRef<HTMLFormElement>(null);
 
   // Reset form on successful submission
-  if (fetcher.data && "ok" in fetcher.data && fetcher.data.ok && fetcher.state === "idle") {
-    formRef.current?.reset();
-  }
+  useEffect(() => {
+    if (fetcher.data && "ok" in fetcher.data && fetcher.data.ok && fetcher.state === "idle") {
+      formRef.current?.reset();
+    }
+  }, [fetcher.data, fetcher.state]);
 
   return (
     <div className="mt-8">
@@ -275,16 +277,6 @@ function CardRow({ card }: { card: Card }) {
   );
 }
 
-function StatBox({ label, value }: { label: string; value: number }) {
-  return (
-    <CardUI>
-      <CardContent className="p-4">
-        <p className="text-2xl font-bold">{value}</p>
-        <p className="text-xs text-muted-foreground">{label}</p>
-      </CardContent>
-    </CardUI>
-  );
-}
 
 export function ErrorBoundary() {
   return (

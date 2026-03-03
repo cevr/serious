@@ -6,6 +6,7 @@ import type { DailyProgress, DeckStats } from "@serious/shared";
 
 import { routeHandler } from "~/lib/effect/route.server";
 import { RetentionChart } from "~/components/retention-chart";
+import { StatCard } from "~/components/stat-card";
 import { StreakDisplay } from "~/components/streak-display";
 import {
   Card,
@@ -138,23 +139,6 @@ export default function Stats() {
         </div>
       )}
     </div>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-}: {
-  label: string;
-  value: number | string;
-}) {
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <p className="text-2xl font-bold">{value}</p>
-        <p className="text-xs text-muted-foreground">{label}</p>
-      </CardContent>
-    </Card>
   );
 }
 

@@ -81,7 +81,7 @@ export function RetentionChart({ data }: { data: DailyProgress[] }) {
 
         {/* Points */}
         {points.map((p, i) => (
-          <g key={i}>
+          <g key={p.date}>
             <circle
               cx={p.x}
               cy={p.y}
