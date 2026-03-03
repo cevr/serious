@@ -29,6 +29,10 @@ import {
 import { Input } from "~/components/ui/input";
 import { StatCard } from "~/components/stat-card";
 
+export const meta: Route.MetaFunction = ({ data }) => [
+  { title: data ? `${data.deck.name} - Serious` : "Deck - Serious" },
+];
+
 export const loader = routeHandler((args) =>
   Effect.gen(function* () {
     const deckId = DeckId.make(args.params.id!);

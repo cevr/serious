@@ -6,6 +6,7 @@ import {
   ScrollRestoration,
   isRouteErrorResponse,
   Link,
+  useNavigation,
 } from "react-router";
 import type { Route } from "./+types/root";
 
@@ -34,8 +35,26 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
+function GlobalLoadingBar() {
+  const navigation = useNavigation();
+  const isLoading = navigation.state !== "idle";
+
+  if (!isLoading) return null;
+
+  return (
+    <div className="fixed inset-x-0 top-0 z-50 h-0.5 bg-primary/20">
+      <div className="h-full w-1/3 animate-pulse bg-primary" />
+    </div>
+  );
+}
+
 export default function Root() {
-  return <Outlet />;
+  return (
+    <>
+      <GlobalLoadingBar />
+      <Outlet />
+    </>
+  );
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {

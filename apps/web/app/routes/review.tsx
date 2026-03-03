@@ -6,6 +6,7 @@ import { DeckService, ReviewService } from "@serious/core";
 import { CardId, DeckId, SessionStats } from "@serious/shared";
 import type { Card, Deck, Rating } from "@serious/shared";
 
+import type { Route } from "./+types/review";
 import { routeAction, routeHandler } from "~/lib/effect/route.server";
 import { FlashCard } from "~/components/flash-card";
 import { RatingButtons } from "~/components/rating-buttons";
@@ -40,6 +41,10 @@ function reviewReducer(state: ReviewState, action: ReviewAction): ReviewState {
     }
   }
 }
+
+export const meta: Route.MetaFunction = () => [
+  { title: "Review - Serious" },
+];
 
 export const loader = routeHandler((args) =>
   Effect.gen(function* () {
@@ -187,12 +192,20 @@ export default function Review() {
         <p className="mt-2 text-muted-foreground">
           All caught up! Come back later.
         </p>
-        <Link
-          to={`/decks/${deck.id}`}
-          className="mt-4 text-sm text-muted-foreground hover:text-foreground"
-        >
-          &larr; Back to deck
-        </Link>
+        <div className="mt-4 flex gap-4">
+          <Link
+            to={`/decks/${deck.id}`}
+            className="text-sm text-muted-foreground hover:text-foreground"
+          >
+            &larr; Back to deck
+          </Link>
+          <Link
+            to={`/decks/${deck.id}`}
+            className="text-sm text-muted-foreground hover:text-foreground"
+          >
+            Add more cards
+          </Link>
+        </div>
       </div>
     );
   }

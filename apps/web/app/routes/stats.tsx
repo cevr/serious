@@ -2,8 +2,9 @@ import { Clock, Effect } from "effect";
 import { isRouteErrorResponse, Link, useLoaderData, useRouteError } from "react-router";
 
 import { DeckService, ReviewService } from "@serious/core";
-import type { DailyProgress, DeckStats } from "@serious/shared";
+import type { DailyProgress, Deck, DeckStats } from "@serious/shared";
 
+import type { Route } from "./+types/stats";
 import { routeHandler } from "~/lib/effect/route.server";
 import { RetentionChart } from "~/components/retention-chart";
 import { StatCard } from "~/components/stat-card";
@@ -14,6 +15,10 @@ import {
   CardHeader,
   CardTitle,
 } from "~/components/ui/card";
+
+export const meta: Route.MetaFunction = () => [
+  { title: "Statistics - Serious" },
+];
 
 export const loader = routeHandler(() =>
   Effect.gen(function* () {
@@ -41,10 +46,11 @@ export const loader = routeHandler(() =>
     // Aggregate stats
     const totalCards = allStats.reduce((sum, s) => sum + s.totalCards, 0);
     const totalDue = allStats.reduce((sum, s) => sum + s.dueToday, 0);
-    const avgRetention =
-      allStats.length > 0
-        ? allStats.reduce((sum, s) => sum + s.retentionRate, 0) / allStats.length
-        : 0;
+
+    // Weight retention by totalCards per deck
+    const totalWeighted = allStats.reduce((sum, s) => sum + s.retentionRate * s.totalCards, 0);
+    const avgRetention = totalCards > 0 ? totalWeighted / totalCards : 0;
+
     const maxStreak = allStats.reduce(
       (max, s) => Math.max(max, s.streak),
       0,
@@ -57,6 +63,7 @@ export const loader = routeHandler(() =>
       maxStreak,
       dailyProgress: dailyProgress as DailyProgress[],
       deckStats: allStats as DeckStats[],
+      decks: decks as Deck[],
     };
   }),
 );
@@ -69,7 +76,10 @@ export default function Stats() {
     maxStreak,
     dailyProgress,
     deckStats,
+    decks,
   } = useLoaderData<typeof loader>();
+
+  const deckNames = new Map(decks.map((d) => [d.id, d.name]));
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -126,7 +136,7 @@ export default function Stats() {
             {deckStats.map((ds) => (
               <Card key={ds.deckId}>
                 <CardContent className="flex items-center justify-between p-4">
-                  <span className="font-medium">{ds.deckId}</span>
+                  <span className="font-medium">{deckNames.get(ds.deckId) ?? ds.deckId}</span>
                   <div className="flex gap-4 text-sm text-muted-foreground">
                     <span>{ds.totalCards} cards</span>
                     <span>{ds.dueToday} due</span>

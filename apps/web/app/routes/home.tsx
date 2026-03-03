@@ -10,6 +10,10 @@ import { routeAction, routeHandler } from "~/lib/effect/route.server";
 import { DeckCard } from "~/components/deck-card";
 import { CreateDeckDialog } from "~/components/create-deck-dialog";
 
+export const meta: Route.MetaFunction = () => [
+  { title: "Home - Serious" },
+];
+
 export const loader = routeHandler(() =>
   Effect.gen(function* () {
     const deckService = yield* DeckService;
