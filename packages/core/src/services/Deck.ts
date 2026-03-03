@@ -34,68 +34,63 @@ export class DeckService extends Context.Tag("DeckService")<
       const db = yield* DatabaseService
 
       return DeckService.of({
-        create: (input) =>
-          Effect.gen(function* () {
-            const now = new Date(yield* Clock.currentTimeMillis)
-            const deck = new Deck({
-              id: DeckId.generate(),
-              name: input.name,
-              description: input.description ?? null,
-              targetLanguage: input.targetLanguage,
-              nativeLanguage: input.nativeLanguage,
-              newCardsPerDay: input.newCardsPerDay ?? 20,
-              reviewsPerDay: input.reviewsPerDay ?? 200,
-              stage: input.stage ?? "vocabulary",
-              createdAt: now,
-              updatedAt: now,
-            })
-            yield* db.insertDeck(deck)
-            return deck
-          }),
+        create: Effect.fn("DeckService.create")(function* (input) {
+          const now = new Date(yield* Clock.currentTimeMillis)
+          const deck = new Deck({
+            id: DeckId.generate(),
+            name: input.name,
+            description: input.description ?? null,
+            targetLanguage: input.targetLanguage,
+            nativeLanguage: input.nativeLanguage,
+            newCardsPerDay: input.newCardsPerDay ?? 20,
+            reviewsPerDay: input.reviewsPerDay ?? 200,
+            stage: input.stage ?? "vocabulary",
+            createdAt: now,
+            updatedAt: now,
+          })
+          yield* db.insertDeck(deck)
+          return deck
+        }),
 
-        get: (id) =>
-          Effect.gen(function* () {
-            const deck = yield* db.getDeck(id)
-            if (Option.isNone(deck)) {
-              return yield* Effect.fail(new DeckNotFound({ deckId: id }))
-            }
-            return deck.value
-          }),
+        get: Effect.fn("DeckService.get")(function* (id) {
+          const deck = yield* db.getDeck(id)
+          if (Option.isNone(deck)) {
+            return yield* Effect.fail(new DeckNotFound({ deckId: id }))
+          }
+          return deck.value
+        }),
 
         getAll: () => db.getAllDecks(),
 
-        getStats: (id) =>
-          Effect.gen(function* () {
-            const deck = yield* db.getDeck(id)
-            if (Option.isNone(deck)) {
-              return yield* Effect.fail(new DeckNotFound({ deckId: id }))
-            }
-            return yield* db.getDeckStats(id)
-          }),
+        getStats: Effect.fn("DeckService.getStats")(function* (id) {
+          const deck = yield* db.getDeck(id)
+          if (Option.isNone(deck)) {
+            return yield* Effect.fail(new DeckNotFound({ deckId: id }))
+          }
+          return yield* db.getDeckStats(id)
+        }),
 
-        update: (id, data) =>
-          Effect.gen(function* () {
-            const existing = yield* db.getDeck(id)
-            if (Option.isNone(existing)) {
-              return yield* Effect.fail(new DeckNotFound({ deckId: id }))
-            }
-            const updated = new Deck({
-              ...existing.value,
-              ...data,
-              updatedAt: new Date(yield* Clock.currentTimeMillis),
-            })
-            yield* db.updateDeck(updated)
-            return updated
-          }),
+        update: Effect.fn("DeckService.update")(function* (id, data) {
+          const existing = yield* db.getDeck(id)
+          if (Option.isNone(existing)) {
+            return yield* Effect.fail(new DeckNotFound({ deckId: id }))
+          }
+          const updated = new Deck({
+            ...existing.value,
+            ...data,
+            updatedAt: new Date(yield* Clock.currentTimeMillis),
+          })
+          yield* db.updateDeck(updated)
+          return updated
+        }),
 
-        delete: (id) =>
-          Effect.gen(function* () {
-            const existing = yield* db.getDeck(id)
-            if (Option.isNone(existing)) {
-              return yield* Effect.fail(new DeckNotFound({ deckId: id }))
-            }
-            yield* db.deleteDeck(id)
-          }),
+        delete: Effect.fn("DeckService.delete")(function* (id) {
+          const existing = yield* db.getDeck(id)
+          if (Option.isNone(existing)) {
+            return yield* Effect.fail(new DeckNotFound({ deckId: id }))
+          }
+          yield* db.deleteDeck(id)
+        }),
       })
     })
   )

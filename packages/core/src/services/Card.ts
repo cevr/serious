@@ -39,37 +39,35 @@ export class CardService extends Context.Tag("CardService")<
       const fsrs = yield* FsrsService
 
       return CardService.of({
-        create: (input) =>
-          Effect.gen(function* () {
-            const card = yield* fsrs.createNew(
-              input.deckId,
-              input.type,
-              input.front,
-              input.back
-            )
+        create: Effect.fn("CardService.create")(function* (input) {
+          const card = yield* fsrs.createNew(
+            input.deckId,
+            input.type,
+            input.front,
+            input.back
+          )
 
-            // Apply optional fields from input
-            const fullCard = new Card({
-              ...card,
-              audioFront: input.audioFront ?? null,
-              audioBack: input.audioBack ?? null,
-              image: input.image ?? null,
-              personalNote: input.personalNote ?? null,
-              tags: input.tags ?? [],
-            })
+          // Apply optional fields from input
+          const fullCard = new Card({
+            ...card,
+            audioFront: input.audioFront ?? null,
+            audioBack: input.audioBack ?? null,
+            image: input.image ?? null,
+            personalNote: input.personalNote ?? null,
+            tags: input.tags ?? [],
+          })
 
-            yield* db.insertCard(fullCard)
-            return fullCard
-          }),
+          yield* db.insertCard(fullCard)
+          return fullCard
+        }),
 
-        get: (id) =>
-          Effect.gen(function* () {
-            const card = yield* db.getCard(id)
-            if (Option.isNone(card)) {
-              return yield* Effect.fail(new CardNotFound({ cardId: id }))
-            }
-            return card.value
-          }),
+        get: Effect.fn("CardService.get")(function* (id) {
+          const card = yield* db.getCard(id)
+          if (Option.isNone(card)) {
+            return yield* Effect.fail(new CardNotFound({ cardId: id }))
+          }
+          return card.value
+        }),
 
         getByDeck: (deckId) => db.getCardsByDeck(deckId),
 
@@ -78,25 +76,23 @@ export class CardService extends Context.Tag("CardService")<
             Effect.flatMap((millis) => db.getDueCards(deckId, limit, new Date(millis)))
           ),
 
-        update: (id, data) =>
-          Effect.gen(function* () {
-            const existing = yield* db.getCard(id)
-            if (Option.isNone(existing)) {
-              return yield* Effect.fail(new CardNotFound({ cardId: id }))
-            }
-            const updated = new Card({ ...existing.value, ...data })
-            yield* db.updateCard(updated)
-            return updated
-          }),
+        update: Effect.fn("CardService.update")(function* (id, data) {
+          const existing = yield* db.getCard(id)
+          if (Option.isNone(existing)) {
+            return yield* Effect.fail(new CardNotFound({ cardId: id }))
+          }
+          const updated = new Card({ ...existing.value, ...data })
+          yield* db.updateCard(updated)
+          return updated
+        }),
 
-        delete: (id) =>
-          Effect.gen(function* () {
-            const existing = yield* db.getCard(id)
-            if (Option.isNone(existing)) {
-              return yield* Effect.fail(new CardNotFound({ cardId: id }))
-            }
-            yield* db.deleteCard(id)
-          }),
+        delete: Effect.fn("CardService.delete")(function* (id) {
+          const existing = yield* db.getCard(id)
+          if (Option.isNone(existing)) {
+            return yield* Effect.fail(new CardNotFound({ cardId: id }))
+          }
+          yield* db.deleteCard(id)
+        }),
       })
     })
   )

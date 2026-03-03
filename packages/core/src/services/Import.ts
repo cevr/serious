@@ -68,201 +68,198 @@ export class ImportService extends Context.Tag("ImportService")<
       const path = yield* Path.Path;
 
       return ImportService.of({
-        importApkg: (buffer, deckId) =>
-          Effect.gen(function* () {
-            // Extract SQLite DB from ZIP
-            const zip = yield* Effect.try({
-              try: () => new AdmZip(Buffer.from(buffer)),
-              catch: () =>
-                new ImportError({
-                  message: "Invalid .apkg file: not a valid ZIP archive",
-                }),
-            });
+        importApkg: Effect.fn("ImportService.importApkg")(function* (buffer, deckId) {
+          // Extract SQLite DB from ZIP
+          const zip = yield* Effect.try({
+            try: () => new AdmZip(Buffer.from(buffer)),
+            catch: () =>
+              new ImportError({
+                message: "Invalid .apkg file: not a valid ZIP archive",
+              }),
+          });
 
-            const entries = zip.getEntries();
-            const dbEntry = entries.find(
-              (e) =>
-                e.entryName === "collection.anki21" ||
-                e.entryName === "collection.anki2",
+          const entries = zip.getEntries();
+          const dbEntry = entries.find(
+            (e) =>
+              e.entryName === "collection.anki21" ||
+              e.entryName === "collection.anki2",
+          );
+
+          if (!dbEntry) {
+            return yield* Effect.fail(
+              new ImportError({
+                message: "Invalid .apkg file: no collection database found",
+              }),
             );
+          }
 
-            if (!dbEntry) {
-              return yield* Effect.fail(
-                new ImportError({
-                  message: "Invalid .apkg file: no collection database found",
-                }),
-              );
-            }
+          // Write to temp file for bun:sqlite
+          const tmpDir = path.join("/tmp", `serious-import-${Date.now()}`);
+          yield* fs
+            .makeDirectory(tmpDir, { recursive: true })
+            .pipe(Effect.catchAll(() => Effect.void));
 
-            // Write to temp file for bun:sqlite
-            const tmpDir = path.join("/tmp", `serious-import-${Date.now()}`);
-            yield* fs
-              .makeDirectory(tmpDir, { recursive: true })
-              .pipe(Effect.catchAll(() => Effect.void));
+          const tmpPath = path.join(tmpDir, "collection.db");
+          const dbData = dbEntry.getData();
 
-            const tmpPath = path.join(tmpDir, "collection.db");
-            const dbData = dbEntry.getData();
+          yield* Effect.tryPromise({
+            try: () => Bun.write(tmpPath, dbData),
+            catch: () =>
+              new ImportError({
+                message: "Failed to write temp database file",
+              }),
+          });
 
-            yield* Effect.tryPromise({
-              try: () => Bun.write(tmpPath, dbData),
-              catch: () =>
-                new ImportError({
-                  message: "Failed to write temp database file",
-                }),
-            });
+          // Parse and import, then clean up
+          const result = yield* parseAndImport(
+            tmpPath,
+            deckId,
+            cardService,
+            db,
+          ).pipe(
+            Effect.ensuring(
+              fs
+                .remove(tmpDir, { recursive: true })
+                .pipe(Effect.catchAll(() => Effect.void)),
+            ),
+          );
 
-            // Parse and import, then clean up
-            const result = yield* parseAndImport(
-              tmpPath,
-              deckId,
-              cardService,
-              db,
-            ).pipe(
-              Effect.ensuring(
-                fs
-                  .remove(tmpDir, { recursive: true })
-                  .pipe(Effect.catchAll(() => Effect.void)),
+          return result;
+        }),
+
+        importFrequencyList: Effect.fn("ImportService.importFrequencyList")(function* (options) {
+          const {
+            filePath,
+            deckId,
+            limit = 1000,
+            sentencesPath,
+            linksPath,
+            langCode,
+          } = options;
+
+          // Read frequency list
+          const content = yield* fs
+            .readFileString(filePath)
+            .pipe(
+              Effect.mapError(
+                () =>
+                  new ImportError({
+                    message: `Failed to read frequency list: ${filePath}`,
+                    path: filePath,
+                  }),
               ),
             );
 
-            return result;
-          }),
+          const words = parseFrequencyList(content, limit);
 
-        importFrequencyList: (options) =>
-          Effect.gen(function* () {
-            const {
-              filePath,
-              deckId,
-              limit = 1000,
-              sentencesPath,
-              linksPath,
-              langCode,
-            } = options;
-
-            // Read frequency list
-            const content = yield* fs
-              .readFileString(filePath)
-              .pipe(
-                Effect.mapError(
-                  () =>
-                    new ImportError({
-                      message: `Failed to read frequency list: ${filePath}`,
-                      path: filePath,
-                    }),
-                ),
-              );
-
-            const words = parseFrequencyList(content, limit);
-
-            if (words.length === 0) {
-              return yield* Effect.fail(
-                new ImportError({
-                  message: "Frequency list is empty or has invalid format",
-                  path: filePath,
-                }),
-              );
-            }
-
-            // Optionally load Tatoeba sentence pairs for enrichment
-            let sentencePairs: Map<string, SentencePair[]> | undefined;
-            if (sentencesPath && linksPath && langCode) {
-              sentencePairs = yield* loadTatoebaPairs(
-                fs,
-                sentencesPath,
-                linksPath,
-                langCode,
-              );
-            }
-
-            let imported = 0;
-            let skipped = 0;
-
-            // Batch all inserts in a single transaction
-            yield* db.transaction(
-              Effect.gen(function* () {
-                for (const { word } of words) {
-                  let personalNote: string | undefined;
-                  let back = word;
-
-                  if (sentencePairs) {
-                    const pairs = findSentencePairs(sentencePairs, word);
-                    if (pairs.length > 0) {
-                      const pair = pairs[0]!;
-                      back = pair.english;
-                      const examples = pairs
-                        .slice(0, 2)
-                        .map((p) => `${p.target}\n→ ${p.english}`)
-                        .join("\n\n");
-                      personalNote = examples;
-                    }
-                  }
-
-                  const input = new CreateCardInput({
-                    deckId,
-                    type: "basic",
-                    front: word,
-                    back,
-                    personalNote,
-                  });
-
-                  yield* cardService.create(input).pipe(
-                    Effect.map(() => { imported++; }),
-                    Effect.catchAll(() => Effect.sync(() => { skipped++; })),
-                  );
-                }
-              })
+          if (words.length === 0) {
+            return yield* Effect.fail(
+              new ImportError({
+                message: "Frequency list is empty or has invalid format",
+                path: filePath,
+              }),
             );
+          }
 
-            return { imported, skipped };
-          }),
-
-        enrichWithTatoeba: (deckId, sentencesPath, linksPath, langCode) =>
-          Effect.gen(function* () {
-            const sentencePairs = yield* loadTatoebaPairs(
+          // Optionally load Tatoeba sentence pairs for enrichment
+          let sentencePairs: Map<string, SentencePair[]> | undefined;
+          if (sentencesPath && linksPath && langCode) {
+            sentencePairs = yield* loadTatoebaPairs(
               fs,
               sentencesPath,
               linksPath,
               langCode,
             );
+          }
 
-            // Get all cards in the deck
-            const cards = yield* cardService.getByDeck(deckId);
+          let imported = 0;
+          let skipped = 0;
 
-            let enriched = 0;
-            let noMatch = 0;
+          // Batch all inserts in a single transaction
+          yield* db.transaction(
+            Effect.gen(function* () {
+              for (const { word } of words) {
+                let personalNote: string | undefined;
+                let back = word;
 
-            for (const card of cards) {
-              // Skip cards that already have a personal note
-              if (card.personalNote) {
-                continue;
-              }
+                if (sentencePairs) {
+                  const pairs = findSentencePairs(sentencePairs, word);
+                  if (pairs.length > 0) {
+                    const pair = pairs[0]!;
+                    back = pair.english;
+                    const examples = pairs
+                      .slice(0, 2)
+                      .map((p) => `${p.target}\n→ ${p.english}`)
+                      .join("\n\n");
+                    personalNote = examples;
+                  }
+                }
 
-              const pairs = findSentencePairs(sentencePairs, card.front);
-              if (pairs.length === 0) {
-                noMatch++;
-                continue;
-              }
+                const input = new CreateCardInput({
+                  deckId,
+                  type: "basic",
+                  front: word,
+                  back,
+                  personalNote,
+                });
 
-              const examples = pairs
-                .slice(0, 2)
-                .map((p) => `${p.target}\n→ ${p.english}`)
-                .join("\n\n");
-
-              yield* cardService
-                .update(card.id, { personalNote: examples })
-                .pipe(
-                  Effect.map(() => {
-                    enriched++;
-                  }),
-                  Effect.catchAll(() => {
-                    noMatch++;
-                    return Effect.void;
-                  }),
+                yield* cardService.create(input).pipe(
+                  Effect.map(() => { imported++; }),
+                  Effect.catchAll(() => Effect.sync(() => { skipped++; })),
                 );
+              }
+            })
+          );
+
+          return { imported, skipped };
+        }),
+
+        enrichWithTatoeba: Effect.fn("ImportService.enrichWithTatoeba")(function* (deckId, sentencesPath, linksPath, langCode) {
+          const sentencePairs = yield* loadTatoebaPairs(
+            fs,
+            sentencesPath,
+            linksPath,
+            langCode,
+          );
+
+          // Get all cards in the deck
+          const cards = yield* cardService.getByDeck(deckId);
+
+          let enriched = 0;
+          let noMatch = 0;
+
+          for (const card of cards) {
+            // Skip cards that already have a personal note
+            if (card.personalNote) {
+              continue;
             }
 
-            return { enriched, noMatch };
-          }),
+            const pairs = findSentencePairs(sentencePairs, card.front);
+            if (pairs.length === 0) {
+              noMatch++;
+              continue;
+            }
+
+            const examples = pairs
+              .slice(0, 2)
+              .map((p) => `${p.target}\n→ ${p.english}`)
+              .join("\n\n");
+
+            yield* cardService
+              .update(card.id, { personalNote: examples })
+              .pipe(
+                Effect.map(() => {
+                  enriched++;
+                }),
+                Effect.catchAll(() => {
+                  noMatch++;
+                  return Effect.void;
+                }),
+              );
+          }
+
+          return { enriched, noMatch };
+        }),
       });
     }),
   );
@@ -279,82 +276,80 @@ export class ImportService extends Context.Tag("ImportService")<
 
 // --- Internal ---
 
-function parseAndImport(
+const parseAndImport = Effect.fn("ImportService.parseAndImport")(function* (
   dbPath: string,
   deckId: DeckId,
   cardService: CardServiceShape,
   db: DatabaseServiceShape,
-): Effect.Effect<ImportResult, ImportError> {
-  return Effect.gen(function* () {
-    const ankiDb = new Database(dbPath, { readonly: true });
+) {
+  const ankiDb = new Database(dbPath, { readonly: true });
 
-    const notes = yield* Effect.try({
-      try: () => {
-        // Parse models from col table to get field names
-        const colRow = ankiDb
-          .query("SELECT models FROM col")
-          .get() as { models: string } | null;
+  const notes = yield* Effect.try({
+    try: () => {
+      // Parse models from col table to get field names
+      const colRow = ankiDb
+        .query("SELECT models FROM col")
+        .get() as { models: string } | null;
 
-        if (!colRow) {
-          throw new Error("no col table");
+      if (!colRow) {
+        throw new Error("no col table");
+      }
+
+      const models = JSON.parse(colRow.models) as Record<string, AnkiModel>;
+
+      // Build field name map: model_id → [field names]
+      const fieldMap = new Map<string, string[]>();
+      for (const [mid, model] of Object.entries(models)) {
+        fieldMap.set(
+          mid,
+          model.flds.map((f) => f.name),
+        );
+      }
+
+      // Read all notes
+      return ankiDb
+        .query("SELECT mid, flds FROM notes")
+        .all() as AnkiNote[];
+    },
+    catch: (err) =>
+      new ImportError({
+        message: `Failed to parse Anki database: ${err instanceof Error ? err.message : "unknown error"}`,
+      }),
+  }).pipe(Effect.ensuring(Effect.sync(() => ankiDb.close())));
+
+  let imported = 0;
+  let skipped = 0;
+
+  // Batch all inserts in a single transaction
+  yield* db.transaction(
+    Effect.gen(function* () {
+      for (const note of notes) {
+        const fields = note.flds.split("\x1f");
+        const front = stripHtml(fields[0] ?? "").trim();
+        const back = stripHtml(fields[1] ?? "").trim();
+
+        if (!front || !back) {
+          skipped++;
+          continue;
         }
 
-        const models = JSON.parse(colRow.models) as Record<string, AnkiModel>;
+        const input = new CreateCardInput({
+          deckId,
+          type: "basic",
+          front,
+          back,
+        });
 
-        // Build field name map: model_id → [field names]
-        const fieldMap = new Map<string, string[]>();
-        for (const [mid, model] of Object.entries(models)) {
-          fieldMap.set(
-            mid,
-            model.flds.map((f) => f.name),
-          );
-        }
+        yield* cardService.create(input).pipe(
+          Effect.map(() => { imported++; }),
+          Effect.catchAll(() => Effect.sync(() => { skipped++; })),
+        );
+      }
+    })
+  );
 
-        // Read all notes
-        return ankiDb
-          .query("SELECT mid, flds FROM notes")
-          .all() as AnkiNote[];
-      },
-      catch: (err) =>
-        new ImportError({
-          message: `Failed to parse Anki database: ${err instanceof Error ? err.message : "unknown error"}`,
-        }),
-    }).pipe(Effect.ensuring(Effect.sync(() => ankiDb.close())));
-
-    let imported = 0;
-    let skipped = 0;
-
-    // Batch all inserts in a single transaction
-    yield* db.transaction(
-      Effect.gen(function* () {
-        for (const note of notes) {
-          const fields = note.flds.split("\x1f");
-          const front = stripHtml(fields[0] ?? "").trim();
-          const back = stripHtml(fields[1] ?? "").trim();
-
-          if (!front || !back) {
-            skipped++;
-            continue;
-          }
-
-          const input = new CreateCardInput({
-            deckId,
-            type: "basic",
-            front,
-            back,
-          });
-
-          yield* cardService.create(input).pipe(
-            Effect.map(() => { imported++; }),
-            Effect.catchAll(() => Effect.sync(() => { skipped++; })),
-          );
-        }
-      })
-    );
-
-    return { imported, skipped };
-  });
-}
+  return { imported, skipped };
+})
 
 // --- Anki format types ---
 
@@ -412,13 +407,12 @@ interface SentencePair {
  * Load Tatoeba sentences + links and build a word → sentence pair index.
  * This is memory-intensive (~300-500MB for full dataset) but runs once per import.
  */
-function loadTatoebaPairs(
+const loadTatoebaPairs = Effect.fn("ImportService.loadTatoebaPairs")(function* (
   fs: FileSystem.FileSystem,
   sentencesPath: string,
   linksPath: string,
   langCode: string,
-): Effect.Effect<Map<string, SentencePair[]>, ImportError> {
-  return Effect.gen(function* () {
+) {
     // Read sentences file
     const sentencesContent = yield* fs
       .readFileString(sentencesPath)
@@ -512,9 +506,8 @@ function loadTatoebaPairs(
       }
     }
 
-    return wordIndex;
-  });
-}
+  return wordIndex;
+})
 
 /**
  * Find sentence pairs containing a word, preferring shorter sentences.

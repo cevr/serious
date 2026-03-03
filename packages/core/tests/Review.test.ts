@@ -3,15 +3,18 @@ import { describe, expect, it } from "@effect/vitest"
 import {
   Card,
   CardId,
+  DailyProgress,
   DeckId,
   ReviewLog,
   ReviewLogId,
+  SessionStats,
   type Rating,
 } from "@serious/shared"
 import { CardNotFound } from "../src/errors"
+import type { ReviewServiceShape } from "../src/services/Review"
 
-// Use a standalone test implementation that doesn't require the actual service module
-// This avoids importing bun:sqlite through the dependency chain
+// Inline test implementation typed against ReviewServiceShape to validate interface conformance.
+// Cannot import ReviewService directly — transitive bun:sqlite dependency breaks vitest (Node).
 
 // Simplified FSRS scheduling for tests
 const scheduleCard = (
@@ -66,9 +69,12 @@ const scheduleCard = (
 }
 
 describe("ReviewService", () => {
-  const makeTestReviewService = () => {
+  const makeTestReviewService = (): ReviewServiceShape & {
+    _getCard: (id: CardId) => Card | undefined
+  } => {
     const cards = new Map<string, Card>()
     const reviewLogs: ReviewLog[] = []
+    const dailyProgress: DailyProgress[] = []
 
     // Seed with a test card
     const testCard = new Card({
@@ -94,13 +100,12 @@ describe("ReviewService", () => {
     cards.set(testCard.id, testCard)
 
     return {
-      getDueCards: (deckId: DeckId, limit: number) =>
+      getDueCards: (deckId) =>
         Effect.succeed(
           Array.from(cards.values())
             .filter((c) => c.deckId === deckId && c.due <= new Date())
-            .slice(0, limit)
         ),
-      submitReview: (cardId: CardId, rating: Rating) => {
+      submitReview: (cardId, rating) => {
         const card = cards.get(cardId)
         if (!card) {
           return Effect.fail(new CardNotFound({ cardId }))
@@ -125,10 +130,26 @@ describe("ReviewService", () => {
 
         return Effect.succeed(scheduled)
       },
-      getHistory: (cardId: CardId) =>
+      getHistory: (cardId) =>
         Effect.succeed(reviewLogs.filter((l) => l.cardId === cardId)),
-      // Helper to access cards for assertions
-      _getCard: (id: CardId) => cards.get(id),
+      getDailyProgressRange: (from, to) =>
+        Effect.succeed(
+          dailyProgress.filter((p) => p.date >= from && p.date <= to)
+        ),
+      recordSession: (stats) =>
+        Effect.sync(() => {
+          const today = new Date().toISOString().split("T")[0]!
+          dailyProgress.push(
+            new DailyProgress({
+              date: today,
+              newCards: stats.newCards,
+              reviews: stats.reviewed,
+              correctReviews: stats.correct,
+              timeSpentSeconds: stats.timeSpentSeconds,
+            })
+          )
+        }),
+      _getCard: (id) => cards.get(id),
     }
   }
 
@@ -139,21 +160,10 @@ describe("ReviewService", () => {
         const deckId = DeckId.make("deck-1")
 
         // Test card is due (2024-01-01), so querying on that date should return it
-        const dueCards = yield* reviewService.getDueCards(deckId, 10)
+        const dueCards = yield* reviewService.getDueCards(deckId)
 
         expect(dueCards).toHaveLength(1)
         expect(dueCards[0]!.front).toBe("Hello")
-      })
-    )
-
-    it.effect("respects limit parameter", () =>
-      Effect.gen(function* () {
-        const reviewService = makeTestReviewService()
-        const deckId = DeckId.make("deck-1")
-
-        const dueCards = yield* reviewService.getDueCards(deckId, 0)
-
-        expect(dueCards).toHaveLength(0)
       })
     )
   })
@@ -246,6 +256,33 @@ describe("ReviewService", () => {
     )
   })
 
+  describe("recordSession", () => {
+    it.effect("records session stats", () =>
+      Effect.gen(function* () {
+        const reviewService = makeTestReviewService()
+
+        const stats = new SessionStats({
+          reviewed: 10,
+          correct: 8,
+          wrong: 2,
+          newCards: 3,
+          timeSpentSeconds: 120,
+          startedAt: new Date(),
+          endedAt: new Date(),
+        })
+
+        yield* reviewService.recordSession(stats)
+
+        const progress = yield* reviewService.getDailyProgressRange(
+          new Date().toISOString().split("T")[0]!,
+          new Date().toISOString().split("T")[0]!,
+        )
+        expect(progress).toHaveLength(1)
+        expect(progress[0]!.reviews).toBe(10)
+      })
+    )
+  })
+
   describe("review workflow", () => {
     it.effect("complete review session workflow", () =>
       Effect.gen(function* () {
@@ -253,7 +290,7 @@ describe("ReviewService", () => {
         const deckId = DeckId.make("deck-1")
 
         // Get due cards
-        const dueCards = yield* reviewService.getDueCards(deckId, 10)
+        const dueCards = yield* reviewService.getDueCards(deckId)
         expect(dueCards.length).toBeGreaterThan(0)
 
         // Review first card

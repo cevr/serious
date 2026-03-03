@@ -1,18 +1,18 @@
-import { Effect, Layer } from "effect"
+import { Effect } from "effect"
 import { describe, expect, it } from "@effect/vitest"
 import { Card, CardId, DeckId, CreateCardInput } from "@serious/shared"
 import { CardNotFound } from "../src/errors"
+import type { CardServiceShape } from "../src/services/Card"
 
-// Use a standalone test implementation that doesn't require the actual service module
-// This avoids importing bun:sqlite through the dependency chain
+// Inline test implementation typed against CardServiceShape to validate interface conformance.
+// Cannot import CardService directly — transitive bun:sqlite dependency breaks vitest (Node).
 
 describe("CardService", () => {
-  // Create a test Card service implementation directly
-  const makeTestCardService = () => {
+  const makeTestCardService = (): CardServiceShape => {
     const cards = new Map<string, Card>()
 
     return {
-      create: (input: CreateCardInput) =>
+      create: (input) =>
         Effect.sync(() => {
           const now = new Date()
           const card = new Card({
@@ -38,23 +38,23 @@ describe("CardService", () => {
           cards.set(card.id, card)
           return card
         }),
-      get: (id: CardId) => {
+      get: (id) => {
         const card = cards.get(id)
         return card
           ? Effect.succeed(card)
           : Effect.fail(new CardNotFound({ cardId: id }))
       },
-      getByDeck: (deckId: DeckId) =>
+      getByDeck: (deckId) =>
         Effect.succeed(
           Array.from(cards.values()).filter((c) => c.deckId === deckId)
         ),
-      getDue: (deckId: DeckId, limit: number) =>
+      getDue: (deckId, limit) =>
         Effect.succeed(
           Array.from(cards.values())
             .filter((c) => c.deckId === deckId && c.due <= new Date())
             .slice(0, limit)
         ),
-      update: (id: CardId, data: Partial<Card>) => {
+      update: (id, data) => {
         const existing = cards.get(id)
         if (!existing) {
           return Effect.fail(new CardNotFound({ cardId: id }))
@@ -63,7 +63,7 @@ describe("CardService", () => {
         cards.set(id, updated)
         return Effect.succeed(updated)
       },
-      delete: (id: CardId) => {
+      delete: (id) => {
         if (!cards.has(id)) {
           return Effect.fail(new CardNotFound({ cardId: id }))
         }

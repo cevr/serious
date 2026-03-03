@@ -63,103 +63,100 @@ export class ReviewService extends Context.Tag("ReviewService")<
       const deckService = yield* DeckService
 
       return ReviewService.of({
-        getDueCards: (deckId) =>
-          Effect.gen(function* () {
-            const now = new Date(yield* Clock.currentTimeMillis)
-            const todayStr = now.toISOString().split("T")[0]!
+        getDueCards: Effect.fn("ReviewService.getDueCards")(function* (deckId) {
+          const now = new Date(yield* Clock.currentTimeMillis)
+          const todayStr = now.toISOString().split("T")[0]!
 
-            // Get deck settings for daily limits
-            const deck = yield* deckService.get(deckId).pipe(
-              Effect.catchTag("DeckNotFound", () => Effect.succeed(null))
-            )
+          // Get deck settings for daily limits
+          const deck = yield* deckService.get(deckId).pipe(
+            Effect.catchTag("DeckNotFound", () => Effect.succeed(null))
+          )
 
-            // Over-fetch: newCardsPerDay + reviewsPerDay + headroom for learning cards
-            const newCardsPerDay = deck?.newCardsPerDay ?? 20
-            const reviewsPerDay = deck?.reviewsPerDay ?? 200
-            const fetchLimit = newCardsPerDay + reviewsPerDay + 10000
+          // Over-fetch: newCardsPerDay + reviewsPerDay + headroom for learning cards
+          const newCardsPerDay = deck?.newCardsPerDay ?? 20
+          const reviewsPerDay = deck?.reviewsPerDay ?? 200
+          const fetchLimit = newCardsPerDay + reviewsPerDay + 10000
 
-            const allDue = yield* db.getDueCards(deckId, fetchLimit, now)
+          const allDue = yield* db.getDueCards(deckId, fetchLimit, now)
 
-            if (!deck) return allDue
+          if (!deck) return allDue
 
-            // Count new cards already introduced today
-            const newCardsToday = yield* db.countNewCardsIntroducedToday(deckId, todayStr)
+          // Count new cards already introduced today
+          const newCardsToday = yield* db.countNewCardsIntroducedToday(deckId, todayStr)
 
-            // Partition due cards by category
-            const learning: Card[] = []
-            const review: Card[] = []
-            const newCards: Card[] = []
+          // Partition due cards by category
+          const learning: Card[] = []
+          const review: Card[] = []
+          const newCards: Card[] = []
 
-            for (const card of allDue) {
-              if (card.state === "learning" || card.state === "relearning") {
-                learning.push(card)
-              } else if (card.state === "review") {
-                review.push(card)
-              } else if (card.state === "new") {
-                newCards.push(card)
-              }
+          for (const card of allDue) {
+            if (card.state === "learning" || card.state === "relearning") {
+              learning.push(card)
+            } else if (card.state === "review") {
+              review.push(card)
+            } else if (card.state === "new") {
+              newCards.push(card)
             }
+          }
 
-            // Learning/relearning cards always come first (no limit — intra-day steps)
-            const result: Card[] = [...learning]
+          // Learning/relearning cards always come first (no limit — intra-day steps)
+          const result: Card[] = [...learning]
 
-            // Review cards up to reviewsPerDay (learning cards don't count against this)
-            result.push(...review.slice(0, reviewsPerDay))
+          // Review cards up to reviewsPerDay (learning cards don't count against this)
+          result.push(...review.slice(0, reviewsPerDay))
 
-            // Then new cards up to remaining newCardsPerDay
-            const newSlots = Math.max(0, newCardsPerDay - newCardsToday)
-            result.push(...newCards.slice(0, newSlots))
+          // Then new cards up to remaining newCardsPerDay
+          const newSlots = Math.max(0, newCardsPerDay - newCardsToday)
+          result.push(...newCards.slice(0, newSlots))
 
-            return result
-          }),
+          return result
+        }),
 
-        submitReview: (cardId, rating) =>
-          Effect.gen(function* () {
-            const card = yield* cardService.get(cardId)
-            const now = new Date(yield* Clock.currentTimeMillis)
+        submitReview: Effect.fn("ReviewService.submitReview")(function* (cardId, rating) {
+          const card = yield* cardService.get(cardId)
+          const now = new Date(yield* Clock.currentTimeMillis)
 
-            // Schedule the card
-            const scheduled = yield* fsrs.schedule(card, rating, now)
+          // Schedule the card
+          const scheduled = yield* fsrs.schedule(card, rating, now)
 
-            // Build the review log
-            const log = new ReviewLog({
-              id: ReviewLogId.generate(),
-              cardId,
-              rating,
-              state: card.state,
-              scheduledDays: scheduled.scheduledDays,
-              elapsedDays: scheduled.elapsedDays,
-              reviewedAt: now,
+          // Build the review log
+          const log = new ReviewLog({
+            id: ReviewLogId.generate(),
+            cardId,
+            rating,
+            state: card.state,
+            scheduledDays: scheduled.scheduledDays,
+            elapsedDays: scheduled.elapsedDays,
+            reviewedAt: now,
+          })
+
+          // Update card + insert log atomically
+          yield* db.transaction(
+            Effect.gen(function* () {
+              yield* db.updateCard(scheduled.card)
+              yield* db.insertReviewLog(log)
             })
+          )
 
-            // Update card + insert log atomically
-            yield* db.transaction(
-              Effect.gen(function* () {
-                yield* db.updateCard(scheduled.card)
-                yield* db.insertReviewLog(log)
-              })
-            )
-
-            return scheduled
-          }),
+          return scheduled
+        }),
 
         getHistory: (cardId) => db.getReviewLogs(cardId),
 
         getDailyProgressRange: (from, to) => db.getDailyProgressRange(from, to),
 
-        recordSession: (stats) =>
-          Effect.gen(function* () {
-            const today = new Date(yield* Clock.currentTimeMillis).toISOString().split("T")[0]!
-            yield* db.upsertDailyProgress(
-              new DailyProgress({
-                date: today,
-                newCards: stats.newCards,
-                reviews: stats.reviewed,
-                correctReviews: stats.correct,
-                timeSpentSeconds: stats.timeSpentSeconds,
-              })
-            )
-          }),
+        recordSession: Effect.fn("ReviewService.recordSession")(function* (stats) {
+          const today = new Date(yield* Clock.currentTimeMillis).toISOString().split("T")[0]!
+          yield* db.upsertDailyProgress(
+            new DailyProgress({
+              date: today,
+              newCards: stats.newCards,
+              reviews: stats.reviewed,
+              correctReviews: stats.correct,
+              timeSpentSeconds: stats.timeSpentSeconds,
+            })
+          )
+        }),
       })
     })
   )

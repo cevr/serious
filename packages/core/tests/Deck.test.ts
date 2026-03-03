@@ -2,17 +2,17 @@ import { Effect } from "effect"
 import { describe, expect, it } from "@effect/vitest"
 import { Deck, DeckId, DeckStats, CreateDeckInput } from "@serious/shared"
 import { DeckNotFound } from "../src/errors"
+import type { DeckServiceShape } from "../src/services/Deck"
 
-// Use a standalone test implementation that doesn't require the actual service module
-// This avoids importing bun:sqlite through the dependency chain
+// Inline test implementation typed against DeckServiceShape to validate interface conformance.
+// Cannot import DeckService directly — transitive bun:sqlite dependency breaks vitest (Node).
 
 describe("DeckService", () => {
-  // Create a test Deck service implementation directly
-  const makeTestDeckService = () => {
+  const makeTestDeckService = (): DeckServiceShape => {
     const decks = new Map<string, Deck>()
 
     return {
-      create: (input: CreateDeckInput) =>
+      create: (input) =>
         Effect.sync(() => {
           const now = new Date()
           const deck = new Deck({
@@ -30,14 +30,14 @@ describe("DeckService", () => {
           decks.set(deck.id, deck)
           return deck
         }),
-      get: (id: DeckId) => {
+      get: (id) => {
         const deck = decks.get(id)
         return deck
           ? Effect.succeed(deck)
           : Effect.fail(new DeckNotFound({ deckId: id }))
       },
       getAll: () => Effect.succeed(Array.from(decks.values())),
-      getStats: (id: DeckId) => {
+      getStats: (id) => {
         if (!decks.has(id)) {
           return Effect.fail(new DeckNotFound({ deckId: id }))
         }
@@ -54,7 +54,7 @@ describe("DeckService", () => {
           })
         )
       },
-      update: (id: DeckId, data: Partial<Deck>) => {
+      update: (id, data) => {
         const existing = decks.get(id)
         if (!existing) {
           return Effect.fail(new DeckNotFound({ deckId: id }))
@@ -67,7 +67,7 @@ describe("DeckService", () => {
         decks.set(id, updated)
         return Effect.succeed(updated)
       },
-      delete: (id: DeckId) => {
+      delete: (id) => {
         if (!decks.has(id)) {
           return Effect.fail(new DeckNotFound({ deckId: id }))
         }

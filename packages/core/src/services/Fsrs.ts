@@ -57,85 +57,84 @@ export class FsrsService extends Context.Tag("FsrsService")<
   static Live = Layer.succeed(
     FsrsService,
     FsrsService.of({
-      schedule: (card, rating, now) =>
-        Effect.gen(function* () {
-          const elapsedDays = card.lastReview
-            ? (now.getTime() - card.lastReview.getTime()) / (1000 * 60 * 60 * 24)
-            : 0
+      schedule: Effect.fn("FsrsService.schedule")(function* (card, rating, now) {
+        const elapsedDays = card.lastReview
+          ? (now.getTime() - card.lastReview.getTime()) / (1000 * 60 * 60 * 24)
+          : 0
 
-          let newState: CardState = card.state
-          let newStability = card.stability
-          let newDifficulty = card.difficulty
-          let newReps = card.reps
-          let newLapses = card.lapses
-          let scheduledDays: number
+        let newState: CardState = card.state
+        let newStability = card.stability
+        let newDifficulty = card.difficulty
+        let newReps = card.reps
+        let newLapses = card.lapses
+        let scheduledDays: number
 
-          if (card.state === "new") {
-            // First review - initialize FSRS parameters
-            const result = initializeCard(rating)
-            newState = result.state
-            newStability = result.stability
-            newDifficulty = result.difficulty
-            newReps = 1
-            scheduledDays = result.interval
-          } else {
-            // Subsequent review
-            const retrievability = calculateRetrievability(
+        if (card.state === "new") {
+          // First review - initialize FSRS parameters
+          const result = initializeCard(rating)
+          newState = result.state
+          newStability = result.stability
+          newDifficulty = result.difficulty
+          newReps = 1
+          scheduledDays = result.interval
+        } else {
+          // Subsequent review
+          const retrievability = calculateRetrievability(
+            card.stability,
+            elapsedDays
+          )
+
+          if (rating === 1) {
+            // Again - card forgotten
+            newLapses = card.lapses + 1
+            newState = "relearning"
+            newStability = calculateStabilityAfterForget(
+              card.difficulty,
               card.stability,
-              elapsedDays
+              retrievability
             )
-
-            if (rating === 1) {
-              // Again - card forgotten
-              newLapses = card.lapses + 1
-              newState = "relearning"
-              newStability = calculateStabilityAfterForget(
-                card.difficulty,
-                card.stability,
-                retrievability
-              )
-              scheduledDays = 1 // Review again tomorrow
-            } else {
-              // Hard, Good, or Easy - card remembered
-              newState = "review"
-              newDifficulty = updateDifficulty(card.difficulty, rating)
-              newStability = calculateStabilityAfterSuccess(
-                card.difficulty,
-                card.stability,
-                retrievability,
-                rating
-              )
-              newReps = card.reps + 1
-              scheduledDays = calculateInterval(newStability, DEFAULT_RETENTION)
-            }
+            scheduledDays = 1 // Review again tomorrow
+          } else {
+            // Hard, Good, or Easy - card remembered
+            newState = "review"
+            newDifficulty = updateDifficulty(card.difficulty, rating)
+            newStability = calculateStabilityAfterSuccess(
+              card.difficulty,
+              card.stability,
+              retrievability,
+              rating
+            )
+            newReps = card.reps + 1
+            scheduledDays = calculateInterval(newStability, DEFAULT_RETENTION)
           }
+        }
 
-          // Apply fuzz to interval to prevent cards from clustering
-          scheduledDays = yield* applyFuzz(scheduledDays)
+        // Apply fuzz to interval to prevent cards from clustering
+        scheduledDays = yield* applyFuzz(scheduledDays)
 
-          // Cap interval at maximum
-          scheduledDays = Math.min(scheduledDays, MAX_INTERVAL)
+        // Cap interval at maximum
+        scheduledDays = Math.min(scheduledDays, MAX_INTERVAL)
 
-          const due = new Date(now)
-          due.setDate(due.getDate() + Math.round(scheduledDays))
+        const due = new Date(now)
+        due.setDate(due.getDate() + Math.round(scheduledDays))
 
-          const newCard = new Card({
-            ...card,
-            state: newState,
-            stability: newStability,
-            difficulty: newDifficulty,
-            reps: newReps,
-            lapses: newLapses,
-            due,
-            lastReview: now,
-          })
+        const newCard = new Card({
+          ...card,
+          state: newState,
+          stability: newStability,
+          difficulty: newDifficulty,
+          reps: newReps,
+          lapses: newLapses,
+          due,
+          lastReview: now,
+        })
 
-          return {
-            card: newCard,
-            scheduledDays,
-            elapsedDays,
-          }
-        }),
+        return {
+          card: newCard,
+          scheduledDays,
+          elapsedDays,
+        }
+      }),
 
       createNew: (deckId, type, front, back) =>
         Clock.currentTimeMillis.pipe(
