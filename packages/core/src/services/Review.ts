@@ -20,8 +20,7 @@ export interface ReviewServiceShape {
    * Get cards due for review in a deck
    */
   readonly getDueCards: (
-    deckId: DeckId,
-    limit: number
+    deckId: DeckId
   ) => Effect.Effect<readonly Card[]>
 
   /**
@@ -64,22 +63,24 @@ export class ReviewService extends Context.Tag("ReviewService")<
       const deckService = yield* DeckService
 
       return ReviewService.of({
-        getDueCards: (deckId, limit) =>
+        getDueCards: (deckId) =>
           Effect.gen(function* () {
             const now = new Date(yield* Clock.currentTimeMillis)
             const todayStr = now.toISOString().split("T")[0]!
-
-            // Fetch all due cards (over-fetch, then filter by limits)
-            const allDue = yield* db.getDueCards(deckId, limit, now)
 
             // Get deck settings for daily limits
             const deck = yield* deckService.get(deckId).pipe(
               Effect.catchAll(() => Effect.succeed(null))
             )
-            if (!deck) return allDue
 
-            const newCardsPerDay = deck.newCardsPerDay
-            const reviewsPerDay = deck.reviewsPerDay
+            // Over-fetch: newCardsPerDay + reviewsPerDay + headroom for learning cards
+            const newCardsPerDay = deck?.newCardsPerDay ?? 20
+            const reviewsPerDay = deck?.reviewsPerDay ?? 200
+            const fetchLimit = newCardsPerDay + reviewsPerDay + 10000
+
+            const allDue = yield* db.getDueCards(deckId, fetchLimit, now)
+
+            if (!deck) return allDue
 
             // Count new cards already introduced today
             const newCardsToday = yield* db.countNewCardsIntroducedToday(deckId, todayStr)
@@ -102,15 +103,14 @@ export class ReviewService extends Context.Tag("ReviewService")<
             // Learning/relearning cards always come first (no limit — intra-day steps)
             const result: Card[] = [...learning]
 
-            // Then review cards up to reviewsPerDay
-            const reviewSlots = Math.max(0, reviewsPerDay - learning.length)
-            result.push(...review.slice(0, reviewSlots))
+            // Review cards up to reviewsPerDay (learning cards don't count against this)
+            result.push(...review.slice(0, reviewsPerDay))
 
             // Then new cards up to remaining newCardsPerDay
             const newSlots = Math.max(0, newCardsPerDay - newCardsToday)
             result.push(...newCards.slice(0, newSlots))
 
-            return result.slice(0, limit)
+            return result
           }),
 
         submitReview: (cardId, rating) =>
@@ -167,7 +167,7 @@ export class ReviewService extends Context.Tag("ReviewService")<
   static Test = Layer.succeed(
     ReviewService,
     ReviewService.of({
-      getDueCards: () => Effect.succeed([]),
+      getDueCards: (_deckId) => Effect.succeed([]),
       submitReview: (cardId) =>
         Effect.succeed({
           card: new Card({

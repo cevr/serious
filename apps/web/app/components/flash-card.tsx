@@ -20,12 +20,6 @@ export function FlashCard({
       aria-label={isFlipped ? "Flash card showing answer" : "Flash card showing question — press to reveal"}
       className="perspective-[1000px] cursor-pointer"
       onClick={onFlip}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onFlip();
-        }
-      }}
     >
       <div
         className="relative h-64 w-full transition-transform duration-500"

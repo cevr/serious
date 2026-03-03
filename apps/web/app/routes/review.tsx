@@ -28,7 +28,7 @@ function reviewReducer(state: ReviewState, action: ReviewAction): ReviewState {
     case "flip":
       return { ...state, flipped: !state.flipped };
     case "rate": {
-      const isCorrect = action.rating >= 3;
+      const isCorrect = action.rating >= 2;
       const correct = state.correct + (isCorrect ? 1 : 0);
       const wrong = state.wrong + (isCorrect ? 0 : 1);
       return { ...state, correct, wrong, index: state.index + 1, flipped: false };
@@ -42,7 +42,7 @@ export const loader = routeHandler(function* (_resume, args) {
   const reviewService = yield* ReviewService;
 
   const deck = yield* deckService.get(deckId);
-  const dueCards = yield* reviewService.getDueCards(deckId, deck.reviewsPerDay);
+  const dueCards = yield* reviewService.getDueCards(deckId);
 
   return {
     deck: deck as Deck,
@@ -112,7 +112,7 @@ export default function Review() {
   // Use ref to avoid stale closures in keyboard handler
   const handleRateRef = useRef<(rating: Rating) => void>(() => {});
   handleRateRef.current = (rating: Rating) => {
-    if (!currentCard || isDone) return;
+    if (!currentCard || isDone || !isFlipped) return;
 
     // Submit review via dedicated fetcher
     reviewFetcher.submit(
@@ -122,7 +122,7 @@ export default function Review() {
 
     // Check if this is the last card — record session via separate fetcher
     if (state.status === "reviewing" && state.index + 1 >= cards.length) {
-      const isCorrect = rating >= 3;
+      const isCorrect = rating >= 2;
       const elapsed = Math.round((Date.now() - startTime.current) / 1000);
       sessionFetcher.submit(
         {
