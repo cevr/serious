@@ -92,7 +92,7 @@ export default function Stats() {
         </Link>
       </div>
 
-      <h1 className="mt-6 text-2xl font-bold tracking-tight">Statistics</h1>
+      <h1 className="mt-6 text-2xl font-bold tracking-tight text-balance">Statistics</h1>
 
       {/* Streak */}
       <div className="mt-6">

@@ -47,11 +47,11 @@ export function SessionSummary({
               <p className="text-xs text-muted-foreground">Accuracy</p>
             </div>
             <div className="text-center">
-              <p className="text-3xl font-bold text-green-600">{correct}</p>
+              <p className="text-3xl font-bold text-success">{correct}</p>
               <p className="text-xs text-muted-foreground">Correct</p>
             </div>
             <div className="text-center">
-              <p className="text-3xl font-bold text-red-500">{wrong}</p>
+              <p className="text-3xl font-bold text-danger">{wrong}</p>
               <p className="text-xs text-muted-foreground">Wrong</p>
             </div>
           </div>

@@ -188,7 +188,7 @@ export default function Review() {
   if (cards.length === 0) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center px-4">
-        <h1 className="text-2xl font-bold">No cards due</h1>
+        <h1 className="text-2xl font-bold text-balance">No cards due</h1>
         <p className="mt-2 text-muted-foreground">
           All caught up! Come back later.
         </p>

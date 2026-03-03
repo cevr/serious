@@ -113,7 +113,7 @@ export default function DeckDetail() {
 
       <div className="mt-6 flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{deck.name}</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-balance">{deck.name}</h1>
           {deck.description && (
             <p className="mt-1 text-muted-foreground">{deck.description}</p>
           )}

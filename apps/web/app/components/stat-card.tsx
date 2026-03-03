@@ -13,7 +13,7 @@ export function StatCard({
   return (
     <Card>
       <CardContent className="p-4">
-        <p className="text-2xl font-bold">{value}</p>
+        <p className="text-2xl font-bold tabular-nums">{value}</p>
         <p className="text-xs text-muted-foreground">{label}</p>
       </CardContent>
     </Card>

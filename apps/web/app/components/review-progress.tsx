@@ -14,12 +14,12 @@ export function ReviewProgress({
   return (
     <div className="w-full max-w-lg">
       <div className="flex items-center justify-between text-sm">
-        <span className="text-muted-foreground">
+        <span className="tabular-nums text-muted-foreground">
           {current} / {total}
         </span>
         <div className="flex gap-3 text-xs">
-          <span className="text-green-600">{correct} correct</span>
-          <span className="text-red-500">{wrong} wrong</span>
+          <span className="text-success">{correct} correct</span>
+          <span className="text-danger">{wrong} wrong</span>
         </div>
       </div>
       <div
@@ -31,7 +31,7 @@ export function ReviewProgress({
         className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted"
       >
         <div
-          className="h-full rounded-full bg-primary transition-all duration-300"
+          className="h-full rounded-full bg-primary transition-[width] duration-300"
           style={{ width: `${progress}%` }}
         />
       </div>

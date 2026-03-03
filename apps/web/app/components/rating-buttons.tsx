@@ -17,7 +17,7 @@ export function RatingButtons({ onRate }: { onRate: (rating: Rating) => void }) 
           variant={variant}
           size="sm"
           onClick={() => onRate(value)}
-          className="min-w-[4.5rem]"
+          className="min-w-18"
         >
           {label}
           <kbd className="ml-1.5 text-[10px] opacity-50">{key}</kbd>

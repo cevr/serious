@@ -22,7 +22,7 @@ export function FlashCard({
       onClick={onFlip}
     >
       <div
-        className="relative h-64 w-full transition-transform duration-500"
+        className="relative h-64 w-full transition-transform duration-200 motion-reduce:transition-none"
         style={{
           transformStyle: "preserve-3d",
           transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
